@@ -1,7 +1,7 @@
 {
   "name": "mcp-captcha-solver",
-  "version": "2.0.0",
-  "description": "An AI-powered Model Context Protocol (MCP) server for automated captcha solving. Features local OCR, image analysis, slider solving, and multiple service integrations.",
+  "version": "3.0.0",
+  "description": "The world's most comprehensive MCP server for AI captcha solving. 22+ tools, 15 captcha types: text, math, slider, reCAPTCHA, hCaptcha, FunCaptcha, GeeTest, Turnstile, audio, rotate, and more.",
   "type": "module",
   "main": "index.js",
   "scripts": {

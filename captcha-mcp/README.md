@@ -1,18 +1,18 @@
 # MCP Captcha Solver
 
-**Comprehensive AI-Powered Captcha Resolution for Model Context Protocol**
+**The World's Most Comprehensive AI Captcha Solving MCP**
 
-This MCP server provides AI agents with multiple strategies to solve captchas—from local OCR to external services, slider puzzles to reCAPTCHA.
+22+ tools. 15 captcha types. One MCP server.
 
-## 🚀 Features
+## 🚀 Supported Captcha Types
 
-| Category | Tools | Description |
-|----------|-------|-------------|
-| **Local OCR** | `solve_with_local_ocr`, `solve_math_locally` | Tesseract.js - No external API |
-| **Analysis** | `analyze_captcha`, `preprocess_image` | Detect type, enhance images |
-| **Slider/Puzzle** | `calculate_slider_offset`, `analyze_image_grid` | Solve visual puzzles |
-| **External Services** | `solve_with_2captcha`, `solve_with_anticaptcha` | reCAPTCHA, hCaptcha support |
-| **Fallback** | `solve_with_fallback` | Auto-retry multiple services |
+| Category | Types | API Required |
+|----------|-------|--------------|
+| **Text-based** | Text OCR, Math expressions | ❌ No |
+| **Interactive** | Slider, Rotate, Image grid | ❌/✅ Mixed |
+| **Token-based** | reCAPTCHA v2/v3, hCaptcha, Turnstile | ✅ Yes |
+| **Advanced** | FunCaptcha, GeeTest v3/v4, KeyCaptcha, Lemin, Amazon WAF | ✅ Yes |
+| **Audio** | Audio captcha transcription | ✅ Yes |
 
 ## 📦 Installation
 
@@ -22,9 +22,9 @@ npm install
 npm start
 ```
 
-## ⚙️ Configuration
+## ⚙️ MCP Configuration
 
-Add to your MCP client (e.g., Claude Desktop `claude_desktop_config.json`):
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -37,73 +37,63 @@ Add to your MCP client (e.g., Claude Desktop `claude_desktop_config.json`):
 }
 ```
 
-## 🔧 Available Tools (13 Total)
+## 🔧 All 22 Tools
 
-### Analysis Tools
-- **`analyze_captcha`** - Detect captcha type (text, math, slider, grid)
-- **`preprocess_image`** - Enhance image for better OCR
-- **`get_captcha_solving_strategy`** - Get recommended solving approach
+### No API Required (Free)
+| Tool | Purpose |
+|------|---------|
+| `analyze_captcha` | Detect captcha type |
+| `preprocess_image` | Enhance for better OCR |
+| `solve_with_local_ocr` | Tesseract text recognition |
+| `solve_math_locally` | OCR + auto-calculate |
+| `calculate_slider_offset` | Estimate drag distance |
+| `analyze_image_grid` | Get cell coordinates |
 
-### Local OCR (No API Required)
-- **`solve_with_local_ocr`** - Read text captchas locally with Tesseract
-- **`solve_math_locally`** - OCR + auto-calculate math expressions
+### Basic Services
+| Tool | Purpose |
+|------|---------|
+| `solve_general_captcha` | Free text solver (rate-limited) |
+| `solve_math_captcha` | jfbym math solver |
+| `solve_with_2captcha` | 2Captcha (image/reCAPTCHA/hCaptcha) |
+| `solve_with_anticaptcha` | Anti-Captcha integration |
+| `solve_with_fallback` | Auto-retry multiple services |
 
-### Slider & Grid Tools
-- **`calculate_slider_offset`** - Estimate drag distance for slider puzzles
-- **`analyze_image_grid`** - Get cell coordinates for image selection
-
-### External Services
-- **`solve_general_captcha`** - Free service (rate-limited)
-- **`solve_math_captcha`** - jfbym service (requires token)
-- **`solve_with_2captcha`** - 2Captcha (image, reCAPTCHA, hCaptcha)
-- **`solve_with_anticaptcha`** - Anti-Captcha integration
-- **`solve_with_fallback`** - Try multiple services in sequence
+### Extended Types (API Required)
+| Tool | Captcha Type |
+|------|--------------|
+| `solve_funcaptcha` | FunCaptcha / Arkose Labs |
+| `solve_geetest_v3` | GeeTest v3 |
+| `solve_geetest_v4` | GeeTest v4 |
+| `solve_turnstile` | Cloudflare Turnstile |
+| `solve_audio_captcha` | Audio transcription |
+| `solve_rotate_captcha` | Rotate to correct angle |
+| `solve_keycaptcha` | KeyCaptcha puzzle |
+| `solve_lemin_captcha` | Lemin Cropped |
+| `solve_amazon_captcha` | Amazon AWS WAF |
 
 ### Utilities
-- **`unban_ip`** - Self-service IP unban
+| Tool | Purpose |
+|------|---------|
+| `unban_ip` | Self-service IP unban |
+| `get_captcha_solving_strategy` | Get recommended approach |
+| `list_supported_captcha_types` | List all types with tools |
 
-## 💡 Usage Examples
+## 💡 Usage Flow
 
-### Simple Text Captcha
 ```
-AI: Use solve_with_local_ocr with the captcha image
-Result: { "text": "A3Kp9", "confidence": 87 }
-```
-
-### Math Captcha
-```
-AI: Use solve_math_locally
-Result: { "expression": "12+8", "result": "20" }
-```
-
-### Slider Puzzle
-```
-AI: Use calculate_slider_offset with the background image
-Result: { "estimatedOffset": 156, "hint": "Drag slider 156px from left" }
+1. AI encounters captcha
+2. Use `analyze_captcha` to detect type
+3. Use `get_captcha_solving_strategy` for recommended tool
+4. Execute appropriate solver
+5. Apply result (fill text, submit token, drag slider)
 ```
 
-### reCAPTCHA v2
-```
-AI: Use solve_with_2captcha with apiKey, siteKey, and pageUrl
-Result: { "result": "03AGdBq24PBCbG..." }
-```
+## 🏆 Why This MCP?
 
-## 🧠 Solving Strategies
-
-| Captcha Type | Recommended Approach |
-|--------------|---------------------|
-| Distorted Text | Local OCR → External fallback |
-| Math Problems | `solve_math_locally` (instant) |
-| Slider Puzzle | `calculate_slider_offset` + mouse simulation |
-| reCAPTCHA v2 | 2Captcha or Anti-Captcha |
-| hCaptcha | External service required |
-| Image Selection | `analyze_image_grid` + AI vision |
-
-## ⚠️ Requirements
-
-- **Node.js** 18+
-- **API Keys** (optional): 2Captcha, Anti-Captcha for advanced challenges
-- Images sent to external services when using those tools
+- **Most comprehensive**: 15 captcha types vs 1-3 in alternatives
+- **Zero-config for basics**: Local OCR works instantly, no API key needed
+- **Smart fallback**: Auto-retry across services
+- **AI-first design**: Strategy guidance tells AI which tool to use
 
 ## License
 

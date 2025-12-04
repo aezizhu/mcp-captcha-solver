@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * MCP Captcha Solver - Enhanced Version 2.0
+ * MCP Captcha Solver - Version 3.0
  * 
- * A comprehensive MCP server providing multiple strategies for captcha solving:
+ * The most comprehensive MCP server for AI captcha solving:
+ * - 22+ tools covering every major captcha type
  * - Local OCR (Tesseract.js) - No external API needed
  * - Image Analysis - Type detection, slider solving, grid analysis
- * - External Services - 2Captcha, Anti-Captcha, and more
+ * - External Services - 2Captcha, Anti-Captcha support
+ * - Extended Types - FunCaptcha, GeeTest, Turnstile, Audio, Rotate, and more
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -31,12 +33,23 @@ import {
     solveWithAntiCaptcha,
     solveWithFallback
 } from './tools/services.js';
+import {
+    solveFunCaptcha,
+    solveGeeTestV3,
+    solveGeeTestV4,
+    solveTurnstile,
+    solveAudioCaptcha,
+    solveRotateCaptcha,
+    solveKeyCaptcha,
+    solveLeminCaptcha,
+    solveAmazonCaptcha
+} from './tools/extended-services.js';
 
 // Create server instance
 const server = new Server(
     {
         name: "mcp-captcha-solver",
-        version: "2.0.0",
+        version: "3.0.0",
     },
     {
         capabilities: {
@@ -68,16 +81,10 @@ const TOOLS = [
         inputSchema: {
             type: "object",
             properties: {
-                imageBase64: {
-                    type: "string",
-                    description: "Base64 encoded image"
-                },
+                imageBase64: { type: "string" },
                 grayscale: { type: "boolean", default: true },
                 sharpen: { type: "boolean", default: true },
-                threshold: {
-                    type: ["boolean", "integer"],
-                    description: "Apply threshold (true for default 128, or specify value)"
-                },
+                threshold: { type: ["boolean", "integer"] },
                 invert: { type: "boolean", default: false }
             },
             required: ["imageBase64"]
@@ -91,29 +98,19 @@ const TOOLS = [
         inputSchema: {
             type: "object",
             properties: {
-                imageBase64: {
-                    type: "string",
-                    description: "Base64 encoded captcha image"
-                },
-                language: {
-                    type: "string",
-                    default: "eng",
-                    description: "OCR language (eng, chi_sim, chi_tra, etc.)"
-                }
+                imageBase64: { type: "string" },
+                language: { type: "string", default: "eng" }
             },
             required: ["imageBase64"]
         }
     },
     {
         name: "solve_math_locally",
-        description: "Solve math captcha using local OCR + evaluation. Extracts expression and calculates result. No external API.",
+        description: "Solve math captcha using local OCR + evaluation. No external API.",
         inputSchema: {
             type: "object",
             properties: {
-                imageBase64: {
-                    type: "string",
-                    description: "Base64 encoded math captcha image"
-                }
+                imageBase64: { type: "string" }
             },
             required: ["imageBase64"]
         }
@@ -122,54 +119,36 @@ const TOOLS = [
     // === SLIDER/PUZZLE TOOLS ===
     {
         name: "calculate_slider_offset",
-        description: "Analyze a slider puzzle image to estimate the drag offset needed to solve it.",
+        description: "Analyze a slider puzzle to estimate drag offset.",
         inputSchema: {
             type: "object",
             properties: {
-                backgroundBase64: {
-                    type: "string",
-                    description: "Base64 encoded slider background image"
-                },
-                pieceBase64: {
-                    type: "string",
-                    description: "Base64 encoded puzzle piece image (optional)"
-                }
+                backgroundBase64: { type: "string" },
+                pieceBase64: { type: "string" }
             },
             required: ["backgroundBase64"]
         }
     },
     {
         name: "analyze_image_grid",
-        description: "Analyze an image selection grid (e.g., reCAPTCHA 'select all traffic lights'). Returns cell coordinates for clicking.",
+        description: "Analyze image selection grid. Returns cell coordinates for clicking.",
         inputSchema: {
             type: "object",
             properties: {
-                imageBase64: {
-                    type: "string",
-                    description: "Base64 encoded grid image"
-                },
-                gridSize: {
-                    type: "integer",
-                    default: 3,
-                    description: "Expected grid size (3 for 3x3, 4 for 4x4)"
-                }
+                imageBase64: { type: "string" },
+                gridSize: { type: "integer", default: 3 }
             },
             required: ["imageBase64"]
         }
     },
 
-    // === EXTERNAL SERVICE TOOLS ===
+    // === BASIC EXTERNAL SERVICES ===
     {
         name: "solve_general_captcha",
-        description: "Solve general text/number captcha using zwhyzzz service (free, rate-limited)",
+        description: "Solve general text/number captcha (free, rate-limited)",
         inputSchema: {
             type: "object",
-            properties: {
-                imageBase64: {
-                    type: "string",
-                    description: "Base64 encoded captcha image"
-                }
-            },
+            properties: { imageBase64: { type: "string" } },
             required: ["imageBase64"]
         }
     },
@@ -180,7 +159,7 @@ const TOOLS = [
             type: "object",
             properties: {
                 imageBase64: { type: "string" },
-                token: { type: "string", description: "jfbym API token" },
+                token: { type: "string" },
                 type: { type: "string", default: "50106" }
             },
             required: ["imageBase64", "token"]
@@ -188,35 +167,27 @@ const TOOLS = [
     },
     {
         name: "solve_with_2captcha",
-        description: "Solve captcha using 2Captcha service. Supports image, reCAPTCHA, and hCaptcha.",
+        description: "2Captcha: image, reCAPTCHA, hCaptcha",
         inputSchema: {
             type: "object",
             properties: {
-                apiKey: { type: "string", description: "2Captcha API key" },
-                captchaType: {
-                    type: "string",
-                    enum: ["image", "recaptcha", "hcaptcha"],
-                    default: "image"
-                },
-                imageBase64: { type: "string", description: "For image captchas" },
-                siteKey: { type: "string", description: "For reCAPTCHA/hCaptcha" },
-                pageUrl: { type: "string", description: "Page URL for reCAPTCHA/hCaptcha" }
+                apiKey: { type: "string" },
+                captchaType: { type: "string", enum: ["image", "recaptcha", "hcaptcha"] },
+                imageBase64: { type: "string" },
+                siteKey: { type: "string" },
+                pageUrl: { type: "string" }
             },
             required: ["apiKey"]
         }
     },
     {
         name: "solve_with_anticaptcha",
-        description: "Solve captcha using Anti-Captcha service. Supports image, reCAPTCHA, and hCaptcha.",
+        description: "Anti-Captcha: image, reCAPTCHA, hCaptcha",
         inputSchema: {
             type: "object",
             properties: {
-                apiKey: { type: "string", description: "Anti-Captcha API key" },
-                captchaType: {
-                    type: "string",
-                    enum: ["image", "recaptcha", "hcaptcha"],
-                    default: "image"
-                },
+                apiKey: { type: "string" },
+                captchaType: { type: "string", enum: ["image", "recaptcha", "hcaptcha"] },
                 imageBase64: { type: "string" },
                 siteKey: { type: "string" },
                 pageUrl: { type: "string" }
@@ -226,17 +197,12 @@ const TOOLS = [
     },
     {
         name: "solve_with_fallback",
-        description: "Try multiple services in sequence until one succeeds. Provides automatic fallback.",
+        description: "Try multiple services in sequence until one succeeds",
         inputSchema: {
             type: "object",
             properties: {
                 imageBase64: { type: "string" },
-                services: {
-                    type: "array",
-                    items: { type: "string" },
-                    default: ["zwhyzzz", "2captcha", "anticaptcha"],
-                    description: "Services to try in order"
-                },
+                services: { type: "array", items: { type: "string" } },
                 twoCaptchaKey: { type: "string" },
                 antiCaptchaKey: { type: "string" }
             },
@@ -244,26 +210,162 @@ const TOOLS = [
         }
     },
 
+    // === EXTENDED CAPTCHA TYPES ===
+    {
+        name: "solve_funcaptcha",
+        description: "Solve FunCaptcha / Arkose Labs (Microsoft, Roblox, EA, GitHub)",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string", description: "2Captcha API key" },
+                publicKey: { type: "string", description: "FunCaptcha public key" },
+                pageUrl: { type: "string", description: "Page URL" },
+                serviceUrl: { type: "string", description: "Optional service URL" }
+            },
+            required: ["apiKey", "publicKey", "pageUrl"]
+        }
+    },
+    {
+        name: "solve_geetest_v3",
+        description: "Solve GeeTest v3 slide captcha",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                gt: { type: "string", description: "GeeTest gt value" },
+                challenge: { type: "string", description: "GeeTest challenge" },
+                pageUrl: { type: "string" }
+            },
+            required: ["apiKey", "gt", "challenge", "pageUrl"]
+        }
+    },
+    {
+        name: "solve_geetest_v4",
+        description: "Solve GeeTest v4",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                captchaId: { type: "string", description: "GeeTest v4 captcha_id" },
+                pageUrl: { type: "string" }
+            },
+            required: ["apiKey", "captchaId", "pageUrl"]
+        }
+    },
+    {
+        name: "solve_turnstile",
+        description: "Solve Cloudflare Turnstile captcha",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                siteKey: { type: "string" },
+                pageUrl: { type: "string" }
+            },
+            required: ["apiKey", "siteKey", "pageUrl"]
+        }
+    },
+    {
+        name: "solve_audio_captcha",
+        description: "Solve audio captcha (transcribe audio)",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                audioBase64: { type: "string", description: "Base64 encoded audio" },
+                audioUrl: { type: "string", description: "Or URL to audio file" },
+                lang: { type: "string", default: "en" }
+            },
+            required: ["apiKey"]
+        }
+    },
+    {
+        name: "solve_rotate_captcha",
+        description: "Solve rotate captcha (detect correct rotation angle)",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                imageBase64: { type: "string" },
+                angle: { type: "integer", default: 360, description: "Maximum rotation angle" }
+            },
+            required: ["apiKey", "imageBase64"]
+        }
+    },
+    {
+        name: "solve_keycaptcha",
+        description: "Solve KeyCaptcha puzzle",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                userId: { type: "string" },
+                sessionId: { type: "string" },
+                webServerSign: { type: "string" },
+                webServerSign2: { type: "string" },
+                pageUrl: { type: "string" }
+            },
+            required: ["apiKey", "userId", "sessionId", "webServerSign", "webServerSign2", "pageUrl"]
+        }
+    },
+    {
+        name: "solve_lemin_captcha",
+        description: "Solve Lemin Cropped captcha",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                captchaId: { type: "string" },
+                div_id: { type: "string" },
+                pageUrl: { type: "string" }
+            },
+            required: ["apiKey", "captchaId", "div_id", "pageUrl"]
+        }
+    },
+    {
+        name: "solve_amazon_captcha",
+        description: "Solve Amazon AWS WAF captcha",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string" },
+                siteKey: { type: "string" },
+                pageUrl: { type: "string" },
+                iv: { type: "string", description: "AWS WAF iv value" },
+                context: { type: "string", description: "AWS WAF context" }
+            },
+            required: ["apiKey", "siteKey", "pageUrl", "iv", "context"]
+        }
+    },
+
     // === UTILITY TOOLS ===
     {
         name: "unban_ip",
-        description: "Attempt to unban your IP from the zwhyzzz service",
+        description: "Attempt to unban your IP from the free service",
         inputSchema: { type: "object", properties: {} }
     },
     {
         name: "get_captcha_solving_strategy",
-        description: "Get recommended strategy for solving a specific captcha type",
+        description: "Get recommended strategy for a captcha type",
         inputSchema: {
             type: "object",
             properties: {
                 captchaType: {
                     type: "string",
-                    enum: ["text", "math", "slider", "recaptcha_v2", "recaptcha_v3", "hcaptcha", "image_selection"],
-                    description: "Type of captcha"
+                    enum: [
+                        "text", "math", "slider", "recaptcha_v2", "recaptcha_v3",
+                        "hcaptcha", "image_selection", "funcaptcha", "geetest",
+                        "turnstile", "audio", "rotate", "amazon_waf"
+                    ]
                 }
             },
             required: ["captchaType"]
         }
+    },
+    {
+        name: "list_supported_captcha_types",
+        description: "List all captcha types this MCP can solve",
+        inputSchema: { type: "object", properties: {} }
     }
 ];
 
@@ -284,23 +386,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "analyze_captcha":
                 result = await analyzeCaptchaType(args.imageBase64);
                 break;
-
             case "preprocess_image":
-                result = await preprocessImage(args.imageBase64, {
-                    grayscale: args.grayscale,
-                    sharpen: args.sharpen,
-                    threshold: args.threshold,
-                    invert: args.invert
-                });
+                result = await preprocessImage(args.imageBase64, args);
                 break;
 
             // Local OCR tools
             case "solve_with_local_ocr":
-                result = await performCaptchaOCR(args.imageBase64, {
-                    lang: args.language || 'eng'
-                });
+                result = await performCaptchaOCR(args.imageBase64, { lang: args.language || 'eng' });
                 break;
-
             case "solve_math_locally":
                 result = await solveMathCaptchaLocally(args.imageBase64);
                 break;
@@ -309,20 +402,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "calculate_slider_offset":
                 result = await calculateSliderOffset(args.backgroundBase64, args.pieceBase64);
                 break;
-
             case "analyze_image_grid":
                 result = await analyzeImageGrid(args.imageBase64, args.gridSize || 3);
                 break;
 
-            // External services
+            // Basic external services
             case "solve_general_captcha":
                 result = await solveWithZwhyzzz(args.imageBase64);
                 break;
-
             case "solve_math_captcha":
                 result = await solveWithJfbym(args.imageBase64, args.token, args.type);
                 break;
-
             case "solve_with_2captcha":
                 result = await solveWith2Captcha({
                     apiKey: args.apiKey,
@@ -332,7 +422,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     pageUrl: args.pageUrl
                 });
                 break;
-
             case "solve_with_anticaptcha":
                 result = await solveWithAntiCaptcha({
                     apiKey: args.apiKey,
@@ -342,30 +431,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     pageUrl: args.pageUrl
                 });
                 break;
-
             case "solve_with_fallback":
                 result = await solveWithFallback(args.imageBase64, {
                     services: args.services,
-                    apiKeys: {
-                        twoCaptcha: args.twoCaptchaKey,
-                        antiCaptcha: args.antiCaptchaKey
-                    }
+                    apiKeys: { twoCaptcha: args.twoCaptchaKey, antiCaptcha: args.antiCaptchaKey }
                 });
+                break;
+
+            // Extended captcha types
+            case "solve_funcaptcha":
+                result = await solveFunCaptcha(args);
+                break;
+            case "solve_geetest_v3":
+                result = await solveGeeTestV3(args);
+                break;
+            case "solve_geetest_v4":
+                result = await solveGeeTestV4(args);
+                break;
+            case "solve_turnstile":
+                result = await solveTurnstile(args);
+                break;
+            case "solve_audio_captcha":
+                result = await solveAudioCaptcha(args);
+                break;
+            case "solve_rotate_captcha":
+                result = await solveRotateCaptcha(args);
+                break;
+            case "solve_keycaptcha":
+                result = await solveKeyCaptcha(args);
+                break;
+            case "solve_lemin_captcha":
+                result = await solveLeminCaptcha(args);
+                break;
+            case "solve_amazon_captcha":
+                result = await solveAmazonCaptcha(args);
                 break;
 
             // Utility tools
             case "unban_ip":
                 try {
                     const response = await fetch('http://ca.zwhyzzz.top:8092/unban');
-                    const text = await response.text();
-                    result = { status: response.status, message: text };
+                    result = { status: response.status, message: await response.text() };
                 } catch (error) {
                     result = { error: error.message };
                 }
                 break;
-
             case "get_captcha_solving_strategy":
                 result = getCaptchaSolvingStrategy(args.captchaType);
+                break;
+            case "list_supported_captcha_types":
+                result = getSupportedCaptchaTypes();
                 break;
 
             default:
@@ -384,6 +499,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 /**
+ * Get all supported captcha types
+ */
+function getSupportedCaptchaTypes() {
+    return {
+        totalTypes: 15,
+        categories: {
+            "Text-based": [
+                { type: "text", tool: "solve_with_local_ocr", apiRequired: false },
+                { type: "math", tool: "solve_math_locally", apiRequired: false }
+            ],
+            "Interactive": [
+                { type: "slider", tool: "calculate_slider_offset", apiRequired: false },
+                { type: "rotate", tool: "solve_rotate_captcha", apiRequired: true },
+                { type: "image_selection", tool: "analyze_image_grid", apiRequired: false }
+            ],
+            "Token-based": [
+                { type: "reCAPTCHA v2", tool: "solve_with_2captcha", apiRequired: true },
+                { type: "reCAPTCHA v3", tool: "solve_with_2captcha", apiRequired: true },
+                { type: "hCaptcha", tool: "solve_with_2captcha", apiRequired: true },
+                { type: "Turnstile", tool: "solve_turnstile", apiRequired: true }
+            ],
+            "Advanced": [
+                { type: "FunCaptcha/Arkose", tool: "solve_funcaptcha", apiRequired: true },
+                { type: "GeeTest v3", tool: "solve_geetest_v3", apiRequired: true },
+                { type: "GeeTest v4", tool: "solve_geetest_v4", apiRequired: true },
+                { type: "KeyCaptcha", tool: "solve_keycaptcha", apiRequired: true },
+                { type: "Lemin", tool: "solve_lemin_captcha", apiRequired: true },
+                { type: "Amazon WAF", tool: "solve_amazon_captcha", apiRequired: true }
+            ],
+            "Audio": [
+                { type: "audio", tool: "solve_audio_captcha", apiRequired: true }
+            ]
+        }
+    };
+}
+
+/**
  * Get recommended strategy for solving a captcha type
  */
 function getCaptchaSolvingStrategy(captchaType) {
@@ -391,74 +543,74 @@ function getCaptchaSolvingStrategy(captchaType) {
         text: {
             description: "Simple distorted text captcha",
             recommendedTools: ["solve_with_local_ocr", "solve_general_captcha"],
-            steps: [
-                "1. Try local OCR first (free, instant)",
-                "2. If confidence < 70%, preprocess image and retry",
-                "3. Fall back to external service if needed"
-            ]
+            steps: ["1. Try local OCR first (free)", "2. Fall back to external service"]
         },
         math: {
             description: "Arithmetic expression captcha",
-            recommendedTools: ["solve_math_locally", "solve_math_captcha"],
-            steps: [
-                "1. Use solve_math_locally for OCR + auto-calculation",
-                "2. If failed, use external math captcha service"
-            ]
+            recommendedTools: ["solve_math_locally"],
+            steps: ["1. Use solve_math_locally for instant calculation"]
         },
         slider: {
             description: "Drag slider to complete puzzle",
             recommendedTools: ["calculate_slider_offset"],
-            steps: [
-                "1. Use calculate_slider_offset to estimate drag distance",
-                "2. Simulate mouse drag from left edge to estimated offset",
-                "3. Add small random offset (+/- 5px) for human-like behavior"
-            ]
+            steps: ["1. Get offset", "2. Simulate drag with slight randomness"]
         },
         recaptcha_v2: {
-            description: "Google reCAPTCHA v2 (checkbox + image selection)",
+            description: "Google reCAPTCHA v2",
             recommendedTools: ["solve_with_2captcha", "solve_with_anticaptcha"],
-            steps: [
-                "1. Extract sitekey from page HTML",
-                "2. Use external service with pageUrl and siteKey",
-                "3. Insert response token into hidden textarea",
-                "4. Submit form"
-            ]
+            steps: ["1. Extract sitekey", "2. Use external service", "3. Insert token"]
         },
         recaptcha_v3: {
-            description: "Invisible reCAPTCHA with behavior analysis",
-            recommendedTools: [],
-            steps: [
-                "⚠️ Very difficult for AI",
-                "1. Requires realistic mouse movements",
-                "2. Requires time-on-page and scroll behavior",
-                "3. External services can help but expensive"
-            ]
+            description: "Invisible reCAPTCHA v3",
+            recommendedTools: ["solve_with_2captcha"],
+            steps: ["⚠️ Requires API key", "1. Use external service with action parameter"]
         },
         hcaptcha: {
-            description: "hCaptcha image selection challenge",
+            description: "hCaptcha challenge",
             recommendedTools: ["solve_with_2captcha", "solve_with_anticaptcha"],
-            steps: [
-                "1. Extract sitekey from page",
-                "2. Use external service",
-                "3. Similar to reCAPTCHA v2 flow"
-            ]
+            steps: ["1. Similar to reCAPTCHA v2 flow"]
+        },
+        funcaptcha: {
+            description: "FunCaptcha / Arkose Labs",
+            recommendedTools: ["solve_funcaptcha"],
+            steps: ["1. Extract publicKey", "2. Use solve_funcaptcha"]
+        },
+        geetest: {
+            description: "GeeTest slide captcha",
+            recommendedTools: ["solve_geetest_v3", "solve_geetest_v4"],
+            steps: ["1. Extract gt/challenge or captcha_id", "2. Use appropriate version"]
+        },
+        turnstile: {
+            description: "Cloudflare Turnstile",
+            recommendedTools: ["solve_turnstile"],
+            steps: ["1. Extract sitekey", "2. Use solve_turnstile"]
+        },
+        audio: {
+            description: "Audio captcha",
+            recommendedTools: ["solve_audio_captcha"],
+            steps: ["1. Get audio file URL or base64", "2. Transcribe with solve_audio_captcha"]
+        },
+        rotate: {
+            description: "Rotate image captcha",
+            recommendedTools: ["solve_rotate_captcha"],
+            steps: ["1. Submit image", "2. Get rotation angle", "3. Apply rotation"]
+        },
+        amazon_waf: {
+            description: "Amazon AWS WAF captcha",
+            recommendedTools: ["solve_amazon_captcha"],
+            steps: ["1. Extract siteKey, iv, context from page", "2. Use solve_amazon_captcha"]
         },
         image_selection: {
-            description: "Select all images matching criteria",
-            recommendedTools: ["analyze_image_grid"],
-            steps: [
-                "1. Use analyze_image_grid to get cell coordinates",
-                "2. For each cell, AI vision should analyze content",
-                "3. Click centers of matching cells",
-                "4. If 'verify' fails, repeat with new images"
-            ]
+            description: "Select matching images",
+            recommendedTools: ["analyze_image_grid", "solve_with_2captcha"],
+            steps: ["1. For AI: analyze_image_grid + vision", "2. For guaranteed: external service"]
         }
     };
 
     return strategies[captchaType] || {
-        description: "Unknown captcha type",
-        recommendedTools: ["analyze_captcha"],
-        steps: ["First use analyze_captcha to detect the type"]
+        description: "Unknown type",
+        recommendedTools: ["analyze_captcha", "list_supported_captcha_types"],
+        steps: ["First detect the captcha type"]
     };
 }
 
@@ -466,7 +618,7 @@ function getCaptchaSolvingStrategy(captchaType) {
 async function runServer() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("MCP Captcha Solver v2.0 running on stdio");
+    console.error("MCP Captcha Solver v3.0 running - 22 tools, 15 captcha types");
 }
 
 runServer().catch((error) => {
