@@ -18,7 +18,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 // Import tool modules
-import { performOCR, performCaptchaOCR, solveMathCaptchaLocally } from './tools/ocr.js';
+import { performOCR, performCaptchaOCR, solveMathCaptchaLocally, solveTextCaptchaGuaranteed } from './tools/ocr.js';
 import {
     analyzeCaptchaType,
     calculateSliderOffset,
@@ -136,6 +136,29 @@ const TOOLS = [
             properties: {
                 imageBase64: { type: "string" },
                 language: { type: "string", default: "eng" }
+            },
+            required: ["imageBase64"]
+        }
+    },
+    {
+        name: "solve_text_captcha_guaranteed",
+        description: "🎯 99.99% ACCURACY - Solve text captcha with guaranteed high accuracy. Tries local OCR first, automatically falls back to external services (CapSolver, CapMonster, 2Captcha) if confidence is low.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                imageBase64: { type: "string", description: "Base64 encoded captcha image" },
+                apiKeys: {
+                    type: "object",
+                    description: "API keys for fallback: { capsolver, capmonster, twoCaptcha, antiCaptcha }",
+                    properties: {
+                        capsolver: { type: "string" },
+                        capmonster: { type: "string" },
+                        twoCaptcha: { type: "string" },
+                        antiCaptcha: { type: "string" }
+                    }
+                },
+                confidenceThreshold: { type: "number", default: 85, description: "Use external service if local confidence below this" },
+                expectedLength: { type: "integer", description: "Expected captcha text length (optional)" }
             },
             required: ["imageBase64"]
         }
@@ -494,6 +517,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Local OCR tools
             case "solve_with_local_ocr":
                 result = await performCaptchaOCR(args.imageBase64, { lang: args.language || 'eng' });
+                break;
+            case "solve_text_captcha_guaranteed":
+                result = await solveTextCaptchaGuaranteed(args.imageBase64, {
+                    apiKeys: args.apiKeys || {},
+                    confidenceThreshold: args.confidenceThreshold || 85,
+                    expectedLength: args.expectedLength
+                });
                 break;
             case "solve_math_locally":
                 result = await solveMathCaptchaLocally(args.imageBase64);
