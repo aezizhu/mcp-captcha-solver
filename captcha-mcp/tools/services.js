@@ -8,7 +8,8 @@ const SERVICES = {
     zwhyzzz: 'http://ca.zwhyzzz.top:8092/',
     jfbym: 'https://www.jfbym.com/api/YmServer/customApi',
     twoCaptcha: 'https://2captcha.com',
-    antiCaptcha: 'https://api.anti-captcha.com'
+    antiCaptcha: 'https://api.anti-captcha.com',
+    captchaAI: 'https://ocr.captchaai.com'
 };
 
 /**
@@ -236,7 +237,7 @@ export async function solveWithAntiCaptcha(params) {
  */
 export async function solveWithFallback(imageBase64, options = {}) {
     const {
-        services = ['zwhyzzz', '2captcha', 'anticaptcha'],
+        services = ['zwhyzzz', 'captchaai', '2captcha', 'anticaptcha'],
         apiKeys = {}
     } = options;
 
@@ -269,6 +270,17 @@ export async function solveWithFallback(imageBase64, options = {}) {
                     result = { success: false, error: 'No API key', service: 'anticaptcha' };
                 }
                 break;
+            case 'captchaai':
+                if (apiKeys.captchaAI) {
+                    result = await solveWith2CaptchaCompatible({
+                        apiKey: apiKeys.captchaAI,
+                        baseUrl: SERVICES.captchaAI,
+                        imageBase64
+                    });
+                } else {
+                    result = { success: false, error: 'No API key', service: 'captchaai' };
+                }
+                break;
             default:
                 result = { success: false, error: 'Unknown service', service };
         }
@@ -290,4 +302,82 @@ export async function solveWithFallback(imageBase64, options = {}) {
         error: 'All services failed',
         attempts: results
     };
+}
+
+/**
+ * Generic solver for any 2Captcha-compatible API (used by CaptchaAI)
+ */
+async function solveWith2CaptchaCompatible(params) {
+    const { apiKey, baseUrl, type = 'image', imageBase64, siteKey, pageUrl } = params;
+
+    if (!apiKey) {
+        return { success: false, error: 'API key required', service: 'captchaai' };
+    }
+
+    try {
+        let submitData;
+
+        if (type === 'image') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'base64',
+                body: imageBase64,
+                json: '1'
+            });
+        } else if (type === 'recaptcha') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'userrecaptcha',
+                googlekey: siteKey,
+                pageurl: pageUrl,
+                json: '1'
+            });
+        } else if (type === 'hcaptcha') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'hcaptcha',
+                sitekey: siteKey,
+                pageurl: pageUrl,
+                json: '1'
+            });
+        }
+
+        const submitResponse = await fetch(`${baseUrl}/in.php`, {
+            method: 'POST',
+            body: submitData
+        });
+        const submitResult = await submitResponse.json();
+
+        if (submitResult.status !== 1) {
+            return { success: false, error: submitResult.request, service: 'captchaai' };
+        }
+
+        const taskId = submitResult.request;
+
+        for (let i = 0; i < 24; i++) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            const resultResponse = await fetch(
+                `${baseUrl}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
+            );
+            const resultData = await resultResponse.json();
+
+            if (resultData.status === 1) {
+                return {
+                    success: true,
+                    result: resultData.request,
+                    service: 'captchaai',
+                    taskId
+                };
+            }
+
+            if (resultData.request !== 'CAPCHA_NOT_READY') {
+                return { success: false, error: resultData.request, service: 'captchaai' };
+            }
+        }
+
+        return { success: false, error: 'Timeout waiting for solution', service: 'captchaai' };
+    } catch (error) {
+        return { success: false, error: error.message, service: 'captchaai' };
+    }
 }

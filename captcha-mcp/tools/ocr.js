@@ -390,7 +390,7 @@ export async function solveTextCaptchaGuaranteed(imageBase64, options = {}) {
     }
 
     // Try external services in order
-    const services = ['capsolver', 'capmonster', 'twoCaptcha', 'antiCaptcha'];
+    const services = ['capsolver', 'capmonster', 'captchaAI', 'twoCaptcha', 'antiCaptcha'];
 
     for (const service of services) {
         const key = apiKeys[service];
@@ -405,6 +405,9 @@ export async function solveTextCaptchaGuaranteed(imageBase64, options = {}) {
                     break;
                 case 'capmonster':
                     externalResult = await solveWithExternalService('capmonster', imageBase64, key);
+                    break;
+                case 'captchaAI':
+                    externalResult = await solveWithExternalService('captchaai', imageBase64, key);
                     break;
                 case 'twoCaptcha':
                     externalResult = await solveWithExternalService('2captcha', imageBase64, key);
@@ -451,12 +454,13 @@ async function solveWithExternalService(service, imageBase64, apiKey) {
     const ENDPOINTS = {
         'capsolver': 'https://api.capsolver.com',
         'capmonster': 'https://api.capmonster.cloud',
+        'captchaai': 'https://ocr.captchaai.com',
         '2captcha': 'https://2captcha.com',
         'anticaptcha': 'https://api.anti-captcha.com'
     };
 
     try {
-        if (service === '2captcha') {
+        if (service === '2captcha' || service === 'captchaai') {
             // Submit image
             const submitData = new URLSearchParams({
                 key: apiKey,
