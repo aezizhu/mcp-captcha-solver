@@ -2,7 +2,7 @@
 
 **99.99%+ Accuracy Captcha Solving for AI Agents**
 
-27 tools. 15+ captcha types. Auto-fallback to external services.
+29 tools. 15+ captcha types. Auto-fallback to external services.
 
 ---
 
@@ -62,6 +62,7 @@ For **99.99%+ accuracy**, provide API keys from one or more services:
 |---------|---------|------|
 | CapSolver | https://capsolver.com | ~$0.5-3 per 1000 |
 | CapMonster | https://capmonster.cloud | ~$0.5-2 per 1000 |
+| CaptchaAI | https://captchaai.com | ~$1-3 per 1000 |
 | 2Captcha | https://2captcha.com | ~$1-3 per 1000 |
 | Anti-Captcha | https://anti-captcha.com | ~$1-3 per 1000 |
 
@@ -75,6 +76,7 @@ solve_text_captcha_guaranteed({
   imageBase64: "...",
   apiKeys: {
     capsolver: "CAP-XXXXXX",
+    captchaAI: "XXXXXX",
     twoCaptcha: "XXXXXX"
   }
 })
@@ -85,7 +87,8 @@ solve_any_captcha({
   siteKey: "...",
   pageUrl: "...",
   apiKeys: {
-    capsolver: "CAP-XXXXXX"
+    capsolver: "CAP-XXXXXX",
+    captchaAI: "XXXXXX"
   }
 })
 ```
@@ -141,6 +144,7 @@ handle_captcha({ situation: "I see a text captcha on login page" })
 ### Token-Based Captchas (API Required)
 | Tool | Captcha Type |
 |------|--------------|
+| `solve_with_captchaai` | reCAPTCHA, hCaptcha, Turnstile, image (2Captcha-compatible) |
 | `solve_with_2captcha` | reCAPTCHA, hCaptcha, image |
 | `solve_with_anticaptcha` | reCAPTCHA, hCaptcha, image |
 | `solve_funcaptcha` | FunCaptcha / Arkose Labs |
