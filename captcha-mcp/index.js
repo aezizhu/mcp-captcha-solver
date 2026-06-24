@@ -462,19 +462,22 @@ const TOOLS = [
     },
     {
         name: "solve_with_captchaai",
-        description: "Solve captcha using CaptchaAI (2Captcha-compatible API, supports reCAPTCHA, hCaptcha, Turnstile, image, GeeTest)",
+        description: "Solve captcha using CaptchaAI (2Captcha-compatible API, supports reCAPTCHA, hCaptcha, Turnstile, GeeTest, FunCaptcha, image)",
         inputSchema: {
             type: "object",
             properties: {
                 apiKey: { type: "string", description: "CaptchaAI API key" },
                 captchaType: {
                     type: "string",
-                    enum: ["image", "recaptcha", "recaptcha_v3", "hcaptcha", "turnstile"],
+                    enum: ["image", "recaptcha", "recaptcha_v3", "hcaptcha", "turnstile", "geetest", "funcaptcha"],
                     description: "Type of captcha to solve"
                 },
                 imageBase64: { type: "string", description: "For image captchas" },
                 siteKey: { type: "string", description: "For token-based captchas" },
-                pageUrl: { type: "string", description: "Page URL for token-based captchas" }
+                pageUrl: { type: "string", description: "Page URL for token-based captchas" },
+                gt: { type: "string", description: "GeeTest gt value (for geetest type)" },
+                challenge: { type: "string", description: "GeeTest challenge value (for geetest type)" },
+                publicKey: { type: "string", description: "FunCaptcha public key (for funcaptcha type)" }
             },
             required: ["apiKey", "captchaType"]
         }

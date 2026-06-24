@@ -307,6 +307,15 @@ export async function solveWithFallback(imageBase64, options = {}) {
 /**
  * Generic solver for any 2Captcha-compatible API (used by CaptchaAI)
  */
+const SUBMIT_TIMEOUT = 30000;
+const POLL_TIMEOUT = 15000;
+
+function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function solveWith2CaptchaCompatible(params) {
     const { apiKey, baseUrl, type = 'image', imageBase64, siteKey, pageUrl } = params;
 
@@ -340,12 +349,14 @@ async function solveWith2CaptchaCompatible(params) {
                 pageurl: pageUrl,
                 json: '1'
             });
+        } else {
+            return { success: false, error: `Unsupported captcha type: ${type}`, service: 'captchaai' };
         }
 
-        const submitResponse = await fetch(`${baseUrl}/in.php`, {
+        const submitResponse = await fetchWithTimeout(`${baseUrl}/in.php`, {
             method: 'POST',
             body: submitData
-        });
+        }, SUBMIT_TIMEOUT);
         const submitResult = await submitResponse.json();
 
         if (submitResult.status !== 1) {
@@ -357,8 +368,10 @@ async function solveWith2CaptchaCompatible(params) {
         for (let i = 0; i < 24; i++) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const resultResponse = await fetch(
-                `${baseUrl}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
+            const resultResponse = await fetchWithTimeout(
+                `${baseUrl}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`,
+                {},
+                POLL_TIMEOUT
             );
             const resultData = await resultResponse.json();
 
