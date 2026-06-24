@@ -5,6 +5,8 @@
  * Includes: CapSolver, CapMonster Cloud, CaptchaAI, and auto-retry logic
  */
 
+import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+
 const SERVICES = {
     capSolver: 'https://api.capsolver.com',
     capMonster: 'https://api.capmonster.cloud',
@@ -316,15 +318,6 @@ async function solve2CaptchaByType(captchaType, params) {
     }
 }
 
-const CAPTCHAAI_SUBMIT_TIMEOUT = 30000;
-const CAPTCHAAI_POLL_TIMEOUT = 15000;
-
-function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
-
 async function solveCaptchaAIByType(captchaType, params) {
     const { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey } = params;
     const BASE = SERVICES.captchaAI;
@@ -364,7 +357,7 @@ async function solveCaptchaAIByType(captchaType, params) {
     }
 
     try {
-        const submitResponse = await fetchWithTimeout(`${BASE}/in.php`, { method: 'POST', body }, CAPTCHAAI_SUBMIT_TIMEOUT);
+        const submitResponse = await fetchWithTimeout(`${BASE}/in.php`, { method: 'POST', body }, SUBMIT_TIMEOUT);
         const submitResult = await submitResponse.json();
 
         if (submitResult.status !== 1) {
@@ -374,7 +367,7 @@ async function solveCaptchaAIByType(captchaType, params) {
         const taskId = submitResult.request;
         for (let i = 0; i < 40; i++) {
             await new Promise(r => setTimeout(r, 5000));
-            const resultResponse = await fetchWithTimeout(`${BASE}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`, {}, CAPTCHAAI_POLL_TIMEOUT);
+            const resultResponse = await fetchWithTimeout(`${BASE}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`, {}, POLL_TIMEOUT);
             const resultData = await resultResponse.json();
             if (resultData.status === 1) {
                 return { success: true, result: resultData.request };

@@ -3,6 +3,8 @@
  * Provides multiple fallback options for different scenarios
  */
 
+import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+
 // Base URLs for various services
 const SERVICES = {
     zwhyzzz: 'http://ca.zwhyzzz.top:8092/',
@@ -307,15 +309,6 @@ export async function solveWithFallback(imageBase64, options = {}) {
 /**
  * Generic solver for any 2Captcha-compatible API (used by CaptchaAI)
  */
-const SUBMIT_TIMEOUT = 30000;
-const POLL_TIMEOUT = 15000;
-
-function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
-
 async function solveWith2CaptchaCompatible(params) {
     const { apiKey, baseUrl, type = 'image', imageBase64, siteKey, pageUrl } = params;
 
