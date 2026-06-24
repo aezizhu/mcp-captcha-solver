@@ -3,6 +3,8 @@
  * Provides multiple fallback options for different scenarios
  */
 
+import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+
 // Base URLs for various services
 const SERVICES = {
     zwhyzzz: 'http://ca.zwhyzzz.top:8092/',
@@ -340,12 +342,14 @@ async function solveWith2CaptchaCompatible(params) {
                 pageurl: pageUrl,
                 json: '1'
             });
+        } else {
+            return { success: false, error: `Unsupported captcha type: ${type}`, service: 'captchaai' };
         }
 
-        const submitResponse = await fetch(`${baseUrl}/in.php`, {
+        const submitResponse = await fetchWithTimeout(`${baseUrl}/in.php`, {
             method: 'POST',
             body: submitData
-        });
+        }, SUBMIT_TIMEOUT);
         const submitResult = await submitResponse.json();
 
         if (submitResult.status !== 1) {
@@ -357,8 +361,10 @@ async function solveWith2CaptchaCompatible(params) {
         for (let i = 0; i < 24; i++) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const resultResponse = await fetch(
-                `${baseUrl}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
+            const resultResponse = await fetchWithTimeout(
+                `${baseUrl}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`,
+                {},
+                POLL_TIMEOUT
             );
             const resultData = await resultResponse.json();
 

@@ -5,6 +5,8 @@
  * Includes: CapSolver, CapMonster Cloud, CaptchaAI, and auto-retry logic
  */
 
+import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+
 const SERVICES = {
     capSolver: 'https://api.capsolver.com',
     capMonster: 'https://api.capmonster.cloud',
@@ -134,16 +136,13 @@ export async function solveWithCapMonster(params) {
  * Supports: image, reCAPTCHA, hCaptcha, Turnstile, GeeTest, FunCaptcha
  */
 export async function solveWithCaptchaAI(params) {
-    const { apiKey, captchaType = 'image', imageBase64, siteKey, pageUrl } = params;
+    const { apiKey, captchaType = 'image', ...captchaParams } = params;
 
     if (!apiKey) {
         return { success: false, error: 'CaptchaAI API key required' };
     }
 
-    const result = await solveCaptchaAIByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl });
-    if (result.success) {
-        return { ...result, service: 'captchaai' };
-    }
+    const result = await solveCaptchaAIByType(captchaType, { apiKey, ...captchaParams });
     return { ...result, service: 'captchaai' };
 }
 
@@ -157,6 +156,9 @@ export async function solveWithCascade(params) {
         imageBase64,
         siteKey,
         pageUrl,
+        gt,
+        challenge,
+        publicKey,
         apiKeys = {},
         services = ['capsolver', 'capmonster', 'captchaai', '2captcha', 'anticaptcha']
     } = params;
@@ -190,7 +192,7 @@ export async function solveWithCascade(params) {
                         result = await solveAntiCaptchaByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl });
                         break;
                     case 'captchaai':
-                        result = await solveCaptchaAIByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl });
+                        result = await solveCaptchaAIByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey });
                         break;
                 }
 
@@ -317,8 +319,7 @@ async function solve2CaptchaByType(captchaType, params) {
 }
 
 async function solveCaptchaAIByType(captchaType, params) {
-    // CaptchaAI is 2Captcha-compatible — same request format, different base URL
-    const { apiKey, imageBase64, siteKey, pageUrl } = params;
+    const { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey } = params;
     const BASE = SERVICES.captchaAI;
 
     let method, body;
@@ -343,13 +344,20 @@ async function solveCaptchaAIByType(captchaType, params) {
             method = 'turnstile';
             body = new URLSearchParams({ key: apiKey, method, sitekey: siteKey, pageurl: pageUrl, json: '1' });
             break;
+        case 'geetest':
+            method = 'geetest';
+            body = new URLSearchParams({ key: apiKey, method, gt: gt || siteKey, challenge: challenge || '', pageurl: pageUrl, json: '1' });
+            break;
+        case 'funcaptcha':
+            method = 'funcaptcha';
+            body = new URLSearchParams({ key: apiKey, method, publickey: publicKey || siteKey, pageurl: pageUrl, json: '1' });
+            break;
         default:
-            method = 'base64';
-            body = new URLSearchParams({ key: apiKey, method, body: imageBase64, json: '1' });
+            return { success: false, error: `Unsupported CaptchaAI captchaType: ${captchaType}` };
     }
 
     try {
-        const submitResponse = await fetch(`${BASE}/in.php`, { method: 'POST', body });
+        const submitResponse = await fetchWithTimeout(`${BASE}/in.php`, { method: 'POST', body }, SUBMIT_TIMEOUT);
         const submitResult = await submitResponse.json();
 
         if (submitResult.status !== 1) {
@@ -359,7 +367,7 @@ async function solveCaptchaAIByType(captchaType, params) {
         const taskId = submitResult.request;
         for (let i = 0; i < 40; i++) {
             await new Promise(r => setTimeout(r, 5000));
-            const resultResponse = await fetch(`${BASE}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`);
+            const resultResponse = await fetchWithTimeout(`${BASE}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`, {}, POLL_TIMEOUT);
             const resultData = await resultResponse.json();
             if (resultData.status === 1) {
                 return { success: true, result: resultData.request };
@@ -430,6 +438,9 @@ export async function solveAnyCaptcha(params) {
         imageBase64,
         siteKey,
         pageUrl,
+        gt,
+        challenge,
+        publicKey,
         apiKeys = {}
     } = params;
 
@@ -454,6 +465,9 @@ export async function solveAnyCaptcha(params) {
         imageBase64,
         siteKey,
         pageUrl,
+        gt,
+        challenge,
+        publicKey,
         apiKeys,
         services: availableServices
     });
