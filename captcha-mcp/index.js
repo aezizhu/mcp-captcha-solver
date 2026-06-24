@@ -264,6 +264,7 @@ const TOOLS = [
             properties: {
                 imageBase64: { type: "string" },
                 services: { type: "array", items: { type: "string" } },
+                captchaAIKey: { type: "string" },
                 twoCaptchaKey: { type: "string" },
                 antiCaptchaKey: { type: "string" }
             },
@@ -587,7 +588,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "solve_with_fallback":
                 result = await solveWithFallback(args.imageBase64, {
                     services: args.services,
-                    apiKeys: { twoCaptcha: args.twoCaptchaKey, antiCaptcha: args.antiCaptchaKey }
+                    apiKeys: { captchaAI: args.captchaAIKey, twoCaptcha: args.twoCaptchaKey, antiCaptcha: args.antiCaptchaKey }
                 });
                 break;
 
