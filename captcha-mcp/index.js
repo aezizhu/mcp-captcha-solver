@@ -46,6 +46,7 @@ import {
 import {
     solveWithCapSolver,
     solveWithCapMonster,
+    solveWithCaptchaAI,
     solveWithCascade,
     solveAnyCaptcha
 } from './tools/high-reliability.js';
@@ -54,7 +55,7 @@ import {
 const server = new Server(
     {
         name: "mcp-captcha-solver",
-        version: "3.0.0",
+        version: "3.1.0",
     },
     {
         capabilities: {
@@ -149,10 +150,11 @@ const TOOLS = [
                 imageBase64: { type: "string", description: "Base64 encoded captcha image" },
                 apiKeys: {
                     type: "object",
-                    description: "API keys for fallback: { capsolver, capmonster, twoCaptcha, antiCaptcha }",
+                    description: "API keys for fallback: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha }",
                     properties: {
                         capsolver: { type: "string" },
                         capmonster: { type: "string" },
+                        captchaAI: { type: "string" },
                         twoCaptcha: { type: "string" },
                         antiCaptcha: { type: "string" }
                     }
@@ -262,6 +264,7 @@ const TOOLS = [
             properties: {
                 imageBase64: { type: "string" },
                 services: { type: "array", items: { type: "string" } },
+                captchaAIKey: { type: "string" },
                 twoCaptchaKey: { type: "string" },
                 antiCaptchaKey: { type: "string" }
             },
@@ -400,7 +403,7 @@ const TOOLS = [
     // === HIGH-RELIABILITY TOOLS (99%+ Success Rate) ===
     {
         name: "solve_any_captcha",
-        description: "🏆 PRIMARY TOOL - Solve ANY captcha with 99%+ success rate. Automatically cascades through multiple services (CapSolver, CapMonster, 2Captcha, Anti-Captcha) with retry logic.",
+        description: "🏆 PRIMARY TOOL - Solve ANY captcha with 99%+ success rate. Automatically cascades through multiple services (CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha) with retry logic.",
         inputSchema: {
             type: "object",
             properties: {
@@ -414,10 +417,11 @@ const TOOLS = [
                 pageUrl: { type: "string", description: "Page URL for token-based captchas" },
                 apiKeys: {
                     type: "object",
-                    description: "API keys for services: { capsolver, capmonster, twoCaptcha, antiCaptcha }",
+                    description: "API keys for services: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha }",
                     properties: {
                         capsolver: { type: "string" },
                         capmonster: { type: "string" },
+                        captchaAI: { type: "string" },
                         twoCaptcha: { type: "string" },
                         antiCaptcha: { type: "string" }
                     }
@@ -454,6 +458,25 @@ const TOOLS = [
                 websiteURL: { type: "string" }
             },
             required: ["apiKey", "taskType"]
+        }
+    },
+    {
+        name: "solve_with_captchaai",
+        description: "Solve captcha using CaptchaAI (2Captcha-compatible API, supports reCAPTCHA, hCaptcha, Turnstile, image, GeeTest)",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string", description: "CaptchaAI API key" },
+                captchaType: {
+                    type: "string",
+                    enum: ["image", "recaptcha", "recaptcha_v3", "hcaptcha", "turnstile"],
+                    description: "Type of captcha to solve"
+                },
+                imageBase64: { type: "string", description: "For image captchas" },
+                siteKey: { type: "string", description: "For token-based captchas" },
+                pageUrl: { type: "string", description: "Page URL for token-based captchas" }
+            },
+            required: ["apiKey", "captchaType"]
         }
     },
 
@@ -565,7 +588,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "solve_with_fallback":
                 result = await solveWithFallback(args.imageBase64, {
                     services: args.services,
-                    apiKeys: { twoCaptcha: args.twoCaptchaKey, antiCaptcha: args.antiCaptchaKey }
+                    apiKeys: { captchaAI: args.captchaAIKey, twoCaptcha: args.twoCaptchaKey, antiCaptcha: args.antiCaptchaKey }
                 });
                 break;
 
@@ -607,6 +630,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case "solve_with_capmonster":
                 result = await solveWithCapMonster(args);
+                break;
+            case "solve_with_captchaai":
+                result = await solveWithCaptchaAI(args);
                 break;
 
             // Utility tools
@@ -848,7 +874,7 @@ function getCaptchaSolvingStrategy(captchaType) {
 async function runServer() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("MCP Captcha Solver v3.0 running - 22 tools, 15 captcha types");
+    console.error("MCP Captcha Solver v3.1 running - 29 tools, 15+ captcha types");
 }
 
 runServer().catch((error) => {
