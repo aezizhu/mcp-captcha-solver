@@ -154,6 +154,9 @@ export async function solveWithCascade(params) {
         imageBase64,
         siteKey,
         pageUrl,
+        gt,
+        challenge,
+        publicKey,
         apiKeys = {},
         services = ['capsolver', 'capmonster', 'captchaai', '2captcha', 'anticaptcha']
     } = params;
@@ -187,7 +190,7 @@ export async function solveWithCascade(params) {
                         result = await solveAntiCaptchaByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl });
                         break;
                     case 'captchaai':
-                        result = await solveCaptchaAIByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl });
+                        result = await solveCaptchaAIByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey });
                         break;
                 }
 
