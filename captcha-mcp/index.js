@@ -415,6 +415,9 @@ const TOOLS = [
                 imageBase64: { type: "string", description: "For image captchas" },
                 siteKey: { type: "string", description: "For token-based captchas" },
                 pageUrl: { type: "string", description: "Page URL for token-based captchas" },
+                gt: { type: "string", description: "GeeTest gt value (for geetest type)" },
+                challenge: { type: "string", description: "GeeTest challenge value (for geetest type)" },
+                publicKey: { type: "string", description: "FunCaptcha public key (for funcaptcha type)" },
                 apiKeys: {
                     type: "object",
                     description: "API keys for services: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha }",

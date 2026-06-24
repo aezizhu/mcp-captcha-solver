@@ -438,6 +438,9 @@ export async function solveAnyCaptcha(params) {
         imageBase64,
         siteKey,
         pageUrl,
+        gt,
+        challenge,
+        publicKey,
         apiKeys = {}
     } = params;
 
@@ -462,6 +465,9 @@ export async function solveAnyCaptcha(params) {
         imageBase64,
         siteKey,
         pageUrl,
+        gt,
+        challenge,
+        publicKey,
         apiKeys,
         services: availableServices
     });
