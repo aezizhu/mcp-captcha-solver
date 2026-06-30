@@ -96,7 +96,7 @@ async function runTests() {
 
     if (failed === 0) {
         console.log('\n🎉 All tests passed! MCP is ready for use.');
-        console.log('\nThe MCP server provides 25 tools including:');
+        console.log('\nThe MCP server provides 29 tools including:');
         console.log('  - solve_any_captcha (99%+ success with API keys)');
         console.log('  - solve_with_local_ocr (free, for simple text)');
         console.log('  - solve_with_2captcha, solve_with_capsolver, etc.');

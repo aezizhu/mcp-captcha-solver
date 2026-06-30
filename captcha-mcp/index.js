@@ -5,7 +5,7 @@
  * 
  * The world's most comprehensive MCP server for AI captcha solving:
  * - 99%+ success rate with cascading multi-service fallback
- * - 25+ tools covering every major captcha type
+ * - 29 tools covering every major captcha type
  * - High-reliability mode: CapSolver, CapMonster, 2Captcha, Anti-Captcha
  * - Local OCR for quick checks, external services for guaranteed results
  */
