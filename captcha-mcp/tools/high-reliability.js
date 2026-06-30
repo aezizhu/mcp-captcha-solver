@@ -235,7 +235,10 @@ async function solveCapSolverByType(captchaType, params) {
         geetest: 'GeeTestTaskProxyLess'
     };
 
-    const taskType = taskTypes[captchaType] || 'ImageToTextTask';
+    const taskType = taskTypes[captchaType];
+    if (!taskType) {
+        return { success: false, error: `Unsupported CapSolver captchaType: ${captchaType}` };
+    }
 
     const taskParams = {};
     if (params.imageBase64) taskParams.body = params.imageBase64;
@@ -256,13 +259,17 @@ async function solveCapMonsterByType(captchaType, params) {
     const taskTypes = {
         image: 'ImageToTextTask',
         recaptcha: 'NoCaptchaTaskProxyless',
+        recaptcha_v3: 'RecaptchaV3TaskProxyless',
         hcaptcha: 'HCaptchaTaskProxyless',
         funcaptcha: 'FunCaptchaTaskProxyless',
         turnstile: 'TurnstileTaskProxyless',
         geetest: 'GeeTestTaskProxyless'
     };
 
-    const taskType = taskTypes[captchaType] || 'ImageToTextTask';
+    const taskType = taskTypes[captchaType];
+    if (!taskType) {
+        return { success: false, error: `Unsupported CapMonster captchaType: ${captchaType}` };
+    }
 
     const taskParams = {};
     if (params.imageBase64) taskParams.body = params.imageBase64;
@@ -307,11 +314,14 @@ async function solve2CaptchaByType(captchaType, params) {
             break;
         case 'geetest':
             method = 'geetest';
-            body = new URLSearchParams({ key: apiKey, method, gt, challenge, pageurl: pageUrl, json: '1' });
+            body = new URLSearchParams({ key: apiKey, method, pageurl: pageUrl, json: '1' });
+            if (gt) body.set('gt', gt);
+            if (challenge) body.set('challenge', challenge);
             break;
         case 'funcaptcha':
             method = 'funcaptcha';
-            body = new URLSearchParams({ key: apiKey, method, publickey: publicKey, pageurl: pageUrl, json: '1' });
+            body = new URLSearchParams({ key: apiKey, method, pageurl: pageUrl, json: '1' });
+            if (publicKey) body.set('publickey', publicKey);
             break;
         default:
             return { success: false, error: `Unsupported 2Captcha captchaType: ${captchaType}` };

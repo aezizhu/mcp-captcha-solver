@@ -64,7 +64,7 @@ export async function solveWithJfbym(imageBase64, token, type = '50106') {
  * Supports: reCAPTCHA, hCaptcha, image captchas, and more
  */
 export async function solveWith2Captcha(params) {
-    const { apiKey, type = 'image', imageBase64, siteKey, pageUrl } = params;
+    const { apiKey, type = 'image', imageBase64, siteKey, pageUrl, gt, challenge, publicKey } = params;
 
     if (!apiKey) {
         return { success: false, error: 'API key required for 2Captcha', service: '2captcha' };
@@ -99,6 +99,32 @@ export async function solveWith2Captcha(params) {
                 pageurl: pageUrl,
                 json: '1'
             });
+        } else if (type === 'recaptcha_v3') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'userrecaptcha',
+                googlekey: siteKey,
+                pageurl: pageUrl,
+                version: 'v3',
+                json: '1'
+            });
+        } else if (type === 'geetest') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'geetest',
+                pageurl: pageUrl,
+                json: '1'
+            });
+            if (gt) submitData.set('gt', gt);
+            if (challenge) submitData.set('challenge', challenge);
+        } else if (type === 'funcaptcha') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'funcaptcha',
+                pageurl: pageUrl,
+                json: '1'
+            });
+            if (publicKey) submitData.set('publickey', publicKey);
         } else {
             return { success: false, error: `Unsupported captcha type: ${type}`, service: '2captcha' };
         }
