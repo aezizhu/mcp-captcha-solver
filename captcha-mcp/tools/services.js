@@ -265,7 +265,8 @@ export async function solveWithAntiCaptcha(params) {
             if (resultData.status === 'ready') {
                 return {
                     success: true,
-                    result: resultData.solution.text || resultData.solution.gRecaptchaResponse,
+                    result: resultData.solution.text || resultData.solution.gRecaptchaResponse || resultData.solution.token || resultData.solution,
+                    solution: resultData.solution,
                     service: 'anticaptcha',
                     taskId
                 };
