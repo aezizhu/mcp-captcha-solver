@@ -19,11 +19,11 @@ const SERVICES = {
  */
 export async function solveWithZwhyzzz(imageBase64) {
     try {
-        const response = await fetch(`${SERVICES.zwhyzzz}identify_GeneralCAPTCHA`, {
+        const response = await fetchWithTimeout(`${SERVICES.zwhyzzz}identify_GeneralCAPTCHA`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ImageBase64: imageBase64 })
-        });
+        }, SUBMIT_TIMEOUT);
 
         const data = await response.json();
 
@@ -41,7 +41,7 @@ export async function solveWithZwhyzzz(imageBase64) {
  */
 export async function solveWithJfbym(imageBase64, token, type = '50106') {
     try {
-        const response = await fetch(SERVICES.jfbym, {
+        const response = await fetchWithTimeout(SERVICES.jfbym, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -50,7 +50,7 @@ export async function solveWithJfbym(imageBase64, token, type = '50106') {
                 token: token,
                 developer_tag: '41acabfb0d980a24e6022e89f9c1bfa4'
             })
-        });
+        }, SUBMIT_TIMEOUT);
 
         const data = await response.json();
         return { success: true, data, service: 'jfbym' };
@@ -64,7 +64,7 @@ export async function solveWithJfbym(imageBase64, token, type = '50106') {
  * Supports: reCAPTCHA, hCaptcha, image captchas, and more
  */
 export async function solveWith2Captcha(params) {
-    const { apiKey, type = 'image', imageBase64, siteKey, pageUrl } = params;
+    const { apiKey, type = 'image', imageBase64, siteKey, pageUrl, gt, challenge, publicKey } = params;
 
     if (!apiKey) {
         return { success: false, error: 'API key required for 2Captcha', service: '2captcha' };
@@ -99,13 +99,41 @@ export async function solveWith2Captcha(params) {
                 pageurl: pageUrl,
                 json: '1'
             });
+        } else if (type === 'recaptcha_v3') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'userrecaptcha',
+                googlekey: siteKey,
+                pageurl: pageUrl,
+                version: 'v3',
+                json: '1'
+            });
+        } else if (type === 'geetest') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'geetest',
+                pageurl: pageUrl,
+                json: '1'
+            });
+            if (gt) submitData.set('gt', gt);
+            if (challenge) submitData.set('challenge', challenge);
+        } else if (type === 'funcaptcha') {
+            submitData = new URLSearchParams({
+                key: apiKey,
+                method: 'funcaptcha',
+                pageurl: pageUrl,
+                json: '1'
+            });
+            if (publicKey) submitData.set('publickey', publicKey);
+        } else {
+            return { success: false, error: `Unsupported captcha type: ${type}`, service: '2captcha' };
         }
 
         // Submit task
-        const submitResponse = await fetch(`${SERVICES.twoCaptcha}/in.php`, {
+        const submitResponse = await fetchWithTimeout(`${SERVICES.twoCaptcha}/in.php`, {
             method: 'POST',
             body: submitData
-        });
+        }, SUBMIT_TIMEOUT);
         const submitResult = await submitResponse.json();
 
         if (submitResult.status !== 1) {
@@ -118,8 +146,10 @@ export async function solveWith2Captcha(params) {
         for (let i = 0; i < 24; i++) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const resultResponse = await fetch(
-                `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
+            const resultResponse = await fetchWithTimeout(
+                `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`,
+                {},
+                POLL_TIMEOUT
             );
             const resultData = await resultResponse.json();
 
@@ -147,7 +177,7 @@ export async function solveWith2Captcha(params) {
  * Solve using Anti-Captcha service
  */
 export async function solveWithAntiCaptcha(params) {
-    const { apiKey, type = 'image', imageBase64, siteKey, pageUrl } = params;
+    const { apiKey, type = 'image', imageBase64, siteKey, pageUrl, gt, challenge, publicKey } = params;
 
     if (!apiKey) {
         return { success: false, error: 'API key required for Anti-Captcha', service: 'anticaptcha' };
@@ -167,23 +197,45 @@ export async function solveWithAntiCaptcha(params) {
                 websiteKey: siteKey,
                 websiteURL: pageUrl
             };
+        } else if (type === 'recaptcha_v3') {
+            taskPayload = {
+                type: 'RecaptchaV3TaskProxyless',
+                websiteKey: siteKey,
+                websiteURL: pageUrl,
+                minScore: 0.7
+            };
         } else if (type === 'hcaptcha') {
             taskPayload = {
                 type: 'HCaptchaTaskProxyless',
                 websiteKey: siteKey,
                 websiteURL: pageUrl
             };
+        } else if (type === 'geetest') {
+            taskPayload = {
+                type: 'GeeTestTaskProxyless',
+                websiteURL: pageUrl,
+                gt: gt,
+                challenge: challenge
+            };
+        } else if (type === 'funcaptcha') {
+            taskPayload = {
+                type: 'FunCaptchaTaskProxyless',
+                websiteURL: pageUrl,
+                websitePublicKey: publicKey
+            };
+        } else {
+            return { success: false, error: `Unsupported captcha type: ${type}`, service: 'anticaptcha' };
         }
 
         // Create task
-        const createResponse = await fetch(`${SERVICES.antiCaptcha}/createTask`, {
+        const createResponse = await fetchWithTimeout(`${SERVICES.antiCaptcha}/createTask`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 clientKey: apiKey,
                 task: taskPayload
             })
-        });
+        }, SUBMIT_TIMEOUT);
         const createResult = await createResponse.json();
 
         if (createResult.errorId !== 0) {
@@ -200,20 +252,21 @@ export async function solveWithAntiCaptcha(params) {
         for (let i = 0; i < 24; i++) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const resultResponse = await fetch(`${SERVICES.antiCaptcha}/getTaskResult`, {
+            const resultResponse = await fetchWithTimeout(`${SERVICES.antiCaptcha}/getTaskResult`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     clientKey: apiKey,
                     taskId: taskId
                 })
-            });
+            }, POLL_TIMEOUT);
             const resultData = await resultResponse.json();
 
             if (resultData.status === 'ready') {
                 return {
                     success: true,
-                    result: resultData.solution.text || resultData.solution.gRecaptchaResponse,
+                    result: resultData.solution.text || resultData.solution.gRecaptchaResponse || resultData.solution.token || resultData.solution,
+                    solution: resultData.solution,
                     service: 'anticaptcha',
                     taskId
                 };

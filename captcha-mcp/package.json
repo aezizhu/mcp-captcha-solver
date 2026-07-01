@@ -1,7 +1,7 @@
 {
   "name": "mcp-captcha-solver",
   "version": "3.1.0",
-  "description": "99%+ success rate captcha solving MCP. 25+ tools with cascading multi-service fallback (CapSolver, CapMonster, 2Captcha, Anti-Captcha).",
+  "description": "99%+ success rate captcha solving MCP. 29 tools with cascading multi-service fallback (CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha).",
   "type": "module",
   "main": "index.js",
   "scripts": {

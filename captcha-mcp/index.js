@@ -5,7 +5,7 @@
  * 
  * The world's most comprehensive MCP server for AI captcha solving:
  * - 99%+ success rate with cascading multi-service fallback
- * - 25+ tools covering every major captcha type
+ * - 29 tools covering every major captcha type
  * - High-reliability mode: CapSolver, CapMonster, 2Captcha, Anti-Captcha
  * - Local OCR for quick checks, external services for guaranteed results
  */
@@ -228,30 +228,36 @@ const TOOLS = [
     },
     {
         name: "solve_with_2captcha",
-        description: "2Captcha: image, reCAPTCHA, hCaptcha",
+        description: "2Captcha: image, reCAPTCHA, reCAPTCHA v3, hCaptcha, GeeTest, FunCaptcha",
         inputSchema: {
             type: "object",
             properties: {
                 apiKey: { type: "string" },
-                captchaType: { type: "string", enum: ["image", "recaptcha", "hcaptcha"] },
+                captchaType: { type: "string", enum: ["image", "recaptcha", "recaptcha_v3", "hcaptcha", "geetest", "funcaptcha"] },
                 imageBase64: { type: "string" },
                 siteKey: { type: "string" },
-                pageUrl: { type: "string" }
+                pageUrl: { type: "string" },
+                gt: { type: "string" },
+                challenge: { type: "string" },
+                publicKey: { type: "string" }
             },
             required: ["apiKey"]
         }
     },
     {
         name: "solve_with_anticaptcha",
-        description: "Anti-Captcha: image, reCAPTCHA, hCaptcha",
+        description: "Anti-Captcha: image, reCAPTCHA, reCAPTCHA v3, hCaptcha, GeeTest, FunCaptcha",
         inputSchema: {
             type: "object",
             properties: {
                 apiKey: { type: "string" },
-                captchaType: { type: "string", enum: ["image", "recaptcha", "hcaptcha"] },
+                captchaType: { type: "string", enum: ["image", "recaptcha", "recaptcha_v3", "hcaptcha", "geetest", "funcaptcha"] },
                 imageBase64: { type: "string" },
                 siteKey: { type: "string" },
-                pageUrl: { type: "string" }
+                pageUrl: { type: "string" },
+                gt: { type: "string" },
+                challenge: { type: "string" },
+                publicKey: { type: "string" }
             },
             required: ["apiKey"]
         }
@@ -579,7 +585,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     type: args.captchaType || 'image',
                     imageBase64: args.imageBase64,
                     siteKey: args.siteKey,
-                    pageUrl: args.pageUrl
+                    pageUrl: args.pageUrl,
+                    gt: args.gt,
+                    challenge: args.challenge,
+                    publicKey: args.publicKey
                 });
                 break;
             case "solve_with_anticaptcha":
@@ -588,7 +597,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     type: args.captchaType || 'image',
                     imageBase64: args.imageBase64,
                     siteKey: args.siteKey,
-                    pageUrl: args.pageUrl
+                    pageUrl: args.pageUrl,
+                    gt: args.gt,
+                    challenge: args.challenge,
+                    publicKey: args.publicKey
                 });
                 break;
             case "solve_with_fallback":
