@@ -16,7 +16,7 @@ npm start
 
 | Directory | Description |
 |-----------|-------------|
-| [captcha-mcp/](captcha-mcp/) | **MCP Server** - 29 tools for captcha solving |
+| [captcha-mcp/](captcha-mcp/) | **MCP Server** - 30 tools for captcha solving |
 | [captcha_solver.js](captcha_solver.js) | Original Tampermonkey script |
 
 ## ✨ Capabilities
@@ -24,7 +24,7 @@ npm start
 - **Local OCR** - Tesseract.js (no external API)
 - **Slider Puzzles** - Edge detection for offset calculation
 - **Grid Analysis** - Image selection coordinate mapping
-- **External Services** - CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha
+- **External Services** - CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha, DeathByCaptcha
 - **Smart Fallback** - Automatic service switching
 
 ➡️ **[Full Documentation](captcha-mcp/README.md)**
