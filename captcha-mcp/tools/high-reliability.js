@@ -5,7 +5,7 @@
  * Includes: CapSolver, CapMonster Cloud, CaptchaAI, DeathByCaptcha, and auto-retry logic
  */
 
-import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+import { fetchWithTimeout, pollCaptchaResult, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
 
 const SERVICES = {
     capSolver: 'https://api.capsolver.com',
@@ -360,7 +360,7 @@ async function solve2CaptchaByType(captchaType, params) {
         const taskId = submitResult.request;
         for (let i = 0; i < 40; i++) {
             await new Promise(r => setTimeout(r, 5000));
-            const resultResponse = await fetchWithTimeout(`https://2captcha.com/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`, {}, POLL_TIMEOUT);
+            const resultResponse = await pollCaptchaResult('https://2captcha.com', apiKey, taskId);
             const resultData = await resultResponse.json();
             if (resultData.status === 1) {
                 return { success: true, result: resultData.request };
@@ -424,7 +424,7 @@ async function solveCaptchaAIByType(captchaType, params) {
         const taskId = submitResult.request;
         for (let i = 0; i < 40; i++) {
             await new Promise(r => setTimeout(r, 5000));
-            const resultResponse = await fetchWithTimeout(`${BASE}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`, {}, POLL_TIMEOUT);
+            const resultResponse = await pollCaptchaResult(BASE, apiKey, taskId);
             const resultData = await resultResponse.json();
             if (resultData.status === 1) {
                 return { success: true, result: resultData.request };
@@ -480,7 +480,7 @@ async function solveDeathByCaptchaByType(captchaType, params) {
         const taskId = submitResult.request;
         for (let i = 0; i < 40; i++) {
             await new Promise(r => setTimeout(r, 5000));
-            const resultResponse = await fetchWithTimeout(`${BASE}/res.php?key=${encodeURIComponent(apiKey)}&action=get&id=${taskId}&json=1`, {}, POLL_TIMEOUT);
+            const resultResponse = await pollCaptchaResult(BASE, apiKey, taskId);
             const resultData = await resultResponse.json();
             if (resultData.status === 1) {
                 return { success: true, result: resultData.request };

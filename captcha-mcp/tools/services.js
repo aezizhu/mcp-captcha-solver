@@ -3,23 +3,32 @@
  * Provides multiple fallback options for different scenarios
  */
 
-import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+import { fetchWithTimeout, pollCaptchaResult, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
+import { truncateUntrusted } from './security.js';
 
 // Base URLs for various services
 const SERVICES = {
-    zwhyzzz: 'http://ca.zwhyzzz.top:8092/',
+    zwhyzzz: process.env.ZWHYZZZ_BASE_URL || 'https://ca.zwhyzzz.top:8092/',
     jfbym: 'https://www.jfbym.com/api/YmServer/customApi',
     twoCaptcha: 'https://2captcha.com',
     antiCaptcha: 'https://api.anti-captcha.com',
     captchaAI: 'https://ocr.captchaai.com'
 };
 
+export function getZwhyzzzBaseUrl() {
+    const baseUrl = SERVICES.zwhyzzz;
+    if (!baseUrl.startsWith('https://')) {
+        throw new Error('The zwhyzzz service URL must use https (set ZWHYZZZ_BASE_URL to an https endpoint)');
+    }
+    return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+}
+
 /**
  * Solve using the original zwhyzzz service (general captchas)
  */
 export async function solveWithZwhyzzz(imageBase64) {
     try {
-        const response = await fetchWithTimeout(`${SERVICES.zwhyzzz}identify_GeneralCAPTCHA`, {
+        const response = await fetchWithTimeout(`${getZwhyzzzBaseUrl()}identify_GeneralCAPTCHA`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ImageBase64: imageBase64 })
@@ -30,7 +39,7 @@ export async function solveWithZwhyzzz(imageBase64) {
         if (data.result) {
             return { success: true, result: data.result, service: 'zwhyzzz' };
         }
-        return { success: false, error: data.msg || 'Unknown error', service: 'zwhyzzz' };
+        return { success: false, error: truncateUntrusted(data.msg) || 'Unknown error', service: 'zwhyzzz' };
     } catch (error) {
         return { success: false, error: error.message, service: 'zwhyzzz' };
     }
@@ -48,7 +57,7 @@ export async function solveWithJfbym(imageBase64, token, type = '50106') {
                 image: imageBase64,
                 type: type,
                 token: token,
-                developer_tag: '41acabfb0d980a24e6022e89f9c1bfa4'
+                ...(process.env.JFBYM_DEVELOPER_TAG ? { developer_tag: process.env.JFBYM_DEVELOPER_TAG } : {})
             })
         }, SUBMIT_TIMEOUT);
 
@@ -146,11 +155,7 @@ export async function solveWith2Captcha(params) {
         for (let i = 0; i < 24; i++) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const resultResponse = await fetchWithTimeout(
-                `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`,
-                {},
-                POLL_TIMEOUT
-            );
+            const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
             const resultData = await resultResponse.json();
 
             if (resultData.status === 1) {
@@ -292,7 +297,7 @@ export async function solveWithAntiCaptcha(params) {
  */
 export async function solveWithFallback(imageBase64, options = {}) {
     const {
-        services = ['zwhyzzz', 'captchaai', '2captcha', 'anticaptcha'],
+        services = ['captchaai', '2captcha', 'anticaptcha'],
         apiKeys = {}
     } = options;
 
@@ -414,11 +419,7 @@ async function solveWith2CaptchaCompatible(params) {
         for (let i = 0; i < 24; i++) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const resultResponse = await fetchWithTimeout(
-                `${baseUrl}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`,
-                {},
-                POLL_TIMEOUT
-            );
+            const resultResponse = await pollCaptchaResult(baseUrl, apiKey, taskId);
             const resultData = await resultResponse.json();
 
             if (resultData.status === 1) {

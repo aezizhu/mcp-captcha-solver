@@ -5,7 +5,9 @@
 // @description  Automatically identify and fill digital/English captchas for most websites
 // @author       aezi
 // @license      GPL Licence
-// @connect      *
+// @connect      ca.zwhyzzz.top
+// @connect      www.jfbym.com
+// @connect      self
 // @match        http://*/*
 // @match        https://*/*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
@@ -20,7 +22,10 @@
 
     var element, input, imgIndex, canvasIndex, inputIndex, captchaType;
     var localRules = [];
-    var queryUrl = "http://ca.zwhyzzz.top:8092/"
+    var queryUrl = "https://ca.zwhyzzz.top:8092/"
+    // Remote solving sends the current page's origin/path and captcha images to the
+    // solver service above. It is disabled until the user explicitly opts in.
+    var remoteSolverEnabled = GM_getValue("remoteSolverEnabled", false);
     var exist = false;
     var iscors = false;
     var inBlack = false;
@@ -52,6 +57,21 @@ If you agree to the above, please enter 'I have read and agree to the above cont
     GM_registerMenuCommand('Delay Identification Time', setStartDelay);
     GM_registerMenuCommand('Self-service IP Unban', unbanIP);
     GM_registerMenuCommand('Join Group', getQQGroup);
+    GM_registerMenuCommand((remoteSolverEnabled ? 'Disable' : 'Enable') + ' Remote Solver', toggleRemoteSolver);
+
+    function toggleRemoteSolver() {
+        if (!remoteSolverEnabled) {
+            var ok = confirm("Enable the remote solver?\nWhen enabled, the current page's address and captcha images are sent to " + queryUrl + " for recognition.");
+            if (!ok) return;
+        }
+        GM_setValue("remoteSolverEnabled", !remoteSolverEnabled);
+        topNotice("Remote solver " + (!remoteSolverEnabled ? "enabled" : "disabled") + ", refresh page to take effect");
+    }
+
+    function sanitizeAnswer(ans) {
+        // Solver responses are untrusted: keep only plain captcha characters and bound the length
+        return String(ans).replace(/\s+/g, "").replace(/[^0-9a-zA-Z+\-*/=.]/g, "").slice(0, 64);
+    }
 
     GM_setValue("preCode", "");
     GM_getValue("ymConfig", null) == null ? GM_setValue("ymConfig", "50106") : null;
@@ -202,10 +222,13 @@ If you agree to the above, please enter 'I have read and agree to the above cont
         for (var i = 0; i < rules.length; i++) {
             var rule = rules[i];
             var row = table.insertRow(i);
-            row.insertCell(0).innerHTML = "<div style='white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>" + rule.url + "</div>";
-            row.insertCell(1).innerHTML = rule.img;
-            row.insertCell(2).innerHTML = rule.input;
-            row.insertCell(3).innerHTML = rule.captchaType;
+            var urlDiv = document.createElement("div");
+            urlDiv.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+            urlDiv.textContent = rule.url;
+            row.insertCell(0).appendChild(urlDiv);
+            row.insertCell(1).textContent = rule.img;
+            row.insertCell(2).textContent = rule.input;
+            row.insertCell(3).textContent = rule.captchaType;
             var removeBtn = document.createElement("button");
             removeBtn.className = "remove";
             removeBtn.style.cssText = 'background-color: transparent; color: blue; border: none; padding: 5px; font-size: 14px; border-radius: 5px;';
@@ -660,8 +683,10 @@ If you agree to the above, please enter 'I have read and agree to the above cont
     }
 
     function writeIn(ans) {
+        if (ans == null) return;
+        ans = sanitizeAnswer(ans);
+        if (ans === "") return;
         if (findInput()) {
-            ans = ans.replace(/\s+/g, "");
             input.value = ans;
             if (typeof (InputEvent) !== "undefined") {
                 input.value = ans;
@@ -679,6 +704,9 @@ If you agree to the above, please enter 'I have read and agree to the above cont
     }
 
     function p(code, i) {
+        if (!remoteSolverEnabled) {
+            return Promise.resolve(null);
+        }
         return new Promise((resolve, reject) => {
             const datas = {
                 "ImageBase64": String(code),
@@ -735,6 +763,9 @@ If you agree to the above, please enter 'I have read and agree to the above cont
 
     function p1(code) {
         if (captchaType == "general" || captchaType == null) {
+            if (!remoteSolverEnabled) {
+                return Promise.resolve(null);
+            }
             return new Promise((resolve, reject) => {
                 const datas = {
                     "ImageBase64": String(code),
@@ -788,8 +819,11 @@ If you agree to the above, please enter 'I have read and agree to the above cont
             const datas = {
                 "image": String(code),
                 "type": type,
-                "token": token,
-                "developer_tag": "41acabfb0d980a24e6022e89f9c1bfa4"
+                "token": token
+            }
+            var developerTag = GM_getValue("developerTag", "");
+            if (developerTag) {
+                datas["developer_tag"] = developerTag;
             }
             return new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
@@ -838,12 +872,32 @@ If you agree to the above, please enter 'I have read and agree to the above cont
         }
     }
 
+    function isSafeImageSrc(src) {
+        // Only fetch plain http(s) captcha images; never internal/loopback hosts
+        try {
+            var url = new URL(src, window.location.href);
+            if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+            if (url.username || url.password) return false;
+            var host = url.hostname;
+            if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal")) return false;
+            if (/^127\.|^10\.|^0\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+            if (host === "::1" || host === "[::1]") return false;
+            return true;
+        }
+        catch (err) {
+            return false;
+        }
+    }
+
     function p2() {
         return new Promise((resolve, reject) => {
+            if (!isSafeImageSrc(element.src)) {
+                console.log("Captcha image source rejected by safety check");
+                return resolve(null);
+            }
             GM_xmlhttpRequest({
                 url: element.src,
                 method: "GET",
-                headers: { 'Content-Type': 'application/json; charset=utf-8', 'path': window.location.href },
                 responseType: "blob",
                 onload: function (response) {
                     let blob = response.response;
@@ -877,9 +931,11 @@ If you agree to the above, please enter 'I have read and agree to the above cont
     }
 
     function writeIn1(ans) {
-        ans = ans.replace(/\s+/g, "");
+        if (ans == null) return;
+        ans = sanitizeAnswer(ans);
+        if (ans === "") return;
         if (input.tagName == "TEXTAREA") {
-            input.innerHTML = ans;
+            input.value = ans;
         }
         else {
             input.value = ans;
@@ -901,7 +957,11 @@ If you agree to the above, please enter 'I have read and agree to the above cont
 
     function compareUrl() {
         return new Promise((resolve, reject) => {
-            var datas = { "url": window.location.href };
+            if (!remoteSolverEnabled) {
+                return resolve(false);
+            }
+            // Only send origin + path, never query strings or fragments
+            var datas = { "url": window.location.origin + window.location.pathname };
             GM_xmlhttpRequest({
                 method: "POST",
                 url: queryUrl + "queryRule",
@@ -1051,7 +1111,7 @@ If you agree to the above, please enter 'I have read and agree to the above cont
         var div = document.createElement('div');
         div.id = 'topNotice';
         div.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 5%; z-index: 9999999999; background: rgba(117,140,148,1); display: flex; justify-content: center; align-items: center; color: #fff; font-family: "Microsoft YaHei"; text-align: center;';
-        div.innerHTML = msg;
+        div.textContent = String(msg).slice(0, 300);
         div.style.fontSize = 'medium';
         document.body.appendChild(div);
         setTimeout(function () {
@@ -1068,7 +1128,10 @@ If you agree to the above, please enter 'I have read and agree to the above cont
         var table = document.getElementById("blackList").getElementsByTagName('tbody')[0];
         for (var i = 0; i < blackList.length; i++) {
             var row = table.insertRow(i);
-            row.insertCell(0).innerHTML = "<div style='white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>" + blackList[i] + "</div>";
+            var itemDiv = document.createElement("div");
+            itemDiv.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+            itemDiv.textContent = blackList[i];
+            row.insertCell(0).appendChild(itemDiv);
             var removeBtn = document.createElement("button");
             removeBtn.className = "remove";
             removeBtn.style.cssText = 'background-color: transparent; color: blue; border: none; padding: 5px; font-size: 14px; border-radius: 5px;';

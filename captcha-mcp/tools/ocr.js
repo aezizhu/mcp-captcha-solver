@@ -4,7 +4,9 @@
  */
 
 import Tesseract from 'tesseract.js';
-import sharp from 'sharp';
+
+import { pollCaptchaResult } from './utils.js';
+import { decodeImageBase64, openImage, readImageMetadata, ValidationError } from './security.js';
 
 /**
  * Preprocess image for better OCR accuracy
@@ -24,11 +26,11 @@ async function preprocessForOCR(imageBase64, options = {}) {
     } = options;
 
     try {
-        const buffer = Buffer.from(imageBase64, 'base64');
-        let pipeline = sharp(buffer);
+        const buffer = decodeImageBase64(imageBase64);
+        let pipeline = openImage(buffer);
 
         // Get metadata for smart processing
-        const metadata = await sharp(buffer).metadata();
+        const metadata = await readImageMetadata(buffer);
 
         // Scale up small images (helps OCR)
         if (metadata.width < 200 || metadata.height < 50) {
@@ -72,6 +74,9 @@ async function preprocessForOCR(imageBase64, options = {}) {
         const outputBuffer = await pipeline.png().toBuffer();
         return outputBuffer.toString('base64');
     } catch (error) {
+        if (error instanceof ValidationError) {
+            throw error;
+        }
         // Return original if preprocessing fails
         return imageBase64;
     }
@@ -85,6 +90,7 @@ async function preprocessForOCR(imageBase64, options = {}) {
  */
 export async function performOCR(imageBase64, lang = 'eng') {
     try {
+        decodeImageBase64(imageBase64);
         const dataUrl = `data:image/png;base64,${imageBase64}`;
 
         const result = await Tesseract.recognize(
@@ -175,6 +181,12 @@ export async function performCaptchaOCR(imageBase64, options = {}) {
     let bestResult = null;
     let bestConfidence = 0;
     const allAttempts = [];
+
+    try {
+        decodeImageBase64(imageBase64);
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
 
     for (const config of preprocessConfigs) {
         try {
@@ -280,7 +292,7 @@ export async function solveMathCaptchaLocally(imageBase64) {
 
         // Evaluate
         try {
-            const result = Function(`"use strict"; return (${expression})`)();
+            const result = evaluateArithmetic(expression);
             const roundedResult = Math.round(result);
 
             return {
@@ -304,6 +316,68 @@ export async function solveMathCaptchaLocally(imageBase64) {
             error: error.message
         };
     }
+}
+
+/**
+ * Evaluate a simple arithmetic expression without dynamic code execution.
+ * Supports + - * / and parentheses via a recursive-descent parser.
+ */
+function evaluateArithmetic(expression) {
+    let pos = 0;
+
+    function parseExpression() {
+        let value = parseTerm();
+        while (pos < expression.length && (expression[pos] === '+' || expression[pos] === '-')) {
+            const op = expression[pos++];
+            const rhs = parseTerm();
+            value = op === '+' ? value + rhs : value - rhs;
+        }
+        return value;
+    }
+
+    function parseTerm() {
+        let value = parseFactor();
+        while (pos < expression.length && (expression[pos] === '*' || expression[pos] === '/')) {
+            const op = expression[pos++];
+            const rhs = parseFactor();
+            value = op === '*' ? value * rhs : value / rhs;
+        }
+        return value;
+    }
+
+    function parseFactor() {
+        if (expression[pos] === '(') {
+            pos++;
+            const value = parseExpression();
+            if (expression[pos] !== ')') {
+                throw new Error('Unbalanced parentheses');
+            }
+            pos++;
+            return value;
+        }
+        if (expression[pos] === '-') {
+            pos++;
+            return -parseFactor();
+        }
+        const start = pos;
+        while (pos < expression.length && /[\d.]/.test(expression[pos])) {
+            pos++;
+        }
+        if (start === pos) {
+            throw new Error(`Unexpected character at position ${pos}`);
+        }
+        const value = Number(expression.slice(start, pos));
+        if (Number.isNaN(value)) {
+            throw new Error('Invalid number');
+        }
+        return value;
+    }
+
+    const result = parseExpression();
+    if (pos !== expression.length) {
+        throw new Error(`Unexpected character at position ${pos}`);
+    }
+    return result;
 }
 
 /**
@@ -488,9 +562,7 @@ async function solveWithExternalService(service, imageBase64, apiKey) {
             for (let i = 0; i < 30; i++) {
                 await new Promise(r => setTimeout(r, 3000));
 
-                const resultRes = await fetch(
-                    `${ENDPOINTS[service]}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultRes = await pollCaptchaResult(ENDPOINTS[service], apiKey, taskId);
                 const resultData = await resultRes.json();
 
                 if (resultData.status === 1) {

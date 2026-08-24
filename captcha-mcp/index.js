@@ -25,9 +25,12 @@ import {
     preprocessImage,
     analyzeImageGrid
 } from './tools/image-analysis.js';
+import { fetchWithTimeout, POLL_TIMEOUT } from './tools/utils.js';
+import { truncateUntrusted } from './tools/security.js';
 import {
     solveWithZwhyzzz,
     solveWithJfbym,
+    getZwhyzzzBaseUrl,
     solveWith2Captcha,
     solveWithAntiCaptcha,
     solveWithFallback
@@ -199,7 +202,7 @@ const TOOLS = [
             type: "object",
             properties: {
                 imageBase64: { type: "string" },
-                gridSize: { type: "integer", default: 3 }
+                gridSize: { type: "integer", default: 3, minimum: 2, maximum: 10 }
             },
             required: ["imageBase64"]
         }
@@ -684,8 +687,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Utility tools
             case "unban_ip":
                 try {
-                    const response = await fetch('http://ca.zwhyzzz.top:8092/unban');
-                    result = { status: response.status, message: await response.text() };
+                    const response = await fetchWithTimeout(`${getZwhyzzzBaseUrl()}unban`, {}, POLL_TIMEOUT);
+                    result = { status: response.status, message: truncateUntrusted(await response.text()) };
                 } catch (error) {
                     result = { error: error.message };
                 }

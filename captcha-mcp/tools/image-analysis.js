@@ -2,7 +2,7 @@
  * Image Analysis Tools - For slider puzzles, object detection hints, and preprocessing
  */
 
-import sharp from 'sharp';
+import { decodeImageBase64, openImage, readImageMetadata, validateGridSize, validateResizeDimension } from './security.js';
 
 /**
  * Analyze image to detect captcha type
@@ -11,9 +11,9 @@ import sharp from 'sharp';
  */
 export async function analyzeCaptchaType(imageBase64) {
     try {
-        const buffer = Buffer.from(imageBase64, 'base64');
-        const metadata = await sharp(buffer).metadata();
-        const stats = await sharp(buffer).stats();
+        const buffer = decodeImageBase64(imageBase64);
+        const metadata = await readImageMetadata(buffer);
+        const stats = await openImage(buffer).stats();
 
         const analysis = {
             width: metadata.width,
@@ -82,10 +82,11 @@ export async function analyzeCaptchaType(imageBase64) {
  */
 export async function calculateSliderOffset(backgroundBase64, pieceBase64 = null) {
     try {
-        const bgBuffer = Buffer.from(backgroundBase64, 'base64');
+        const bgBuffer = decodeImageBase64(backgroundBase64, 'backgroundBase64');
+        await readImageMetadata(bgBuffer);
 
         // Convert to grayscale and detect edges
-        const edgeBuffer = await sharp(bgBuffer)
+        const edgeBuffer = await openImage(bgBuffer)
             .greyscale()
             .convolve({
                 width: 3,
@@ -158,11 +159,14 @@ export async function preprocessImage(imageBase64, options = {}) {
     } = options;
 
     try {
-        const buffer = Buffer.from(imageBase64, 'base64');
-        let pipeline = sharp(buffer);
+        const buffer = decodeImageBase64(imageBase64);
+        await readImageMetadata(buffer);
+        let pipeline = openImage(buffer);
 
         if (resize) {
-            pipeline = pipeline.resize(resize.width, resize.height, { fit: 'fill' });
+            const width = validateResizeDimension(resize.width, 'resize.width');
+            const height = validateResizeDimension(resize.height, 'resize.height');
+            pipeline = pipeline.resize(width, height, { fit: 'fill' });
         }
 
         if (grayscale) {
@@ -204,17 +208,18 @@ export async function preprocessImage(imageBase64, options = {}) {
  */
 export async function analyzeImageGrid(imageBase64, expectedGrid = 3) {
     try {
-        const buffer = Buffer.from(imageBase64, 'base64');
-        const metadata = await sharp(buffer).metadata();
+        const gridSize = validateGridSize(expectedGrid);
+        const buffer = decodeImageBase64(imageBase64);
+        const metadata = await readImageMetadata(buffer);
 
-        const cellWidth = Math.floor(metadata.width / expectedGrid);
-        const cellHeight = Math.floor(metadata.height / expectedGrid);
+        const cellWidth = Math.floor(metadata.width / gridSize);
+        const cellHeight = Math.floor(metadata.height / gridSize);
 
         const cells = [];
-        for (let row = 0; row < expectedGrid; row++) {
-            for (let col = 0; col < expectedGrid; col++) {
+        for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
                 cells.push({
-                    index: row * expectedGrid + col,
+                    index: row * gridSize + col,
                     row,
                     col,
                     x: col * cellWidth,
@@ -229,11 +234,11 @@ export async function analyzeImageGrid(imageBase64, expectedGrid = 3) {
 
         return {
             success: true,
-            gridSize: expectedGrid,
-            totalCells: expectedGrid * expectedGrid,
+            gridSize,
+            totalCells: gridSize * gridSize,
             cellDimensions: { width: cellWidth, height: cellHeight },
             cells,
-            hint: `Image appears to be a ${expectedGrid}x${expectedGrid} grid. Click on cell centers to select.`
+            hint: `Image appears to be a ${gridSize}x${gridSize} grid. Click on cell centers to select.`
         };
     } catch (error) {
         return {
