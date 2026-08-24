@@ -2,7 +2,7 @@
 
 **99.99%+ Accuracy Captcha Solving for AI Agents**
 
-29 tools. 15+ captcha types. Auto-fallback to external services.
+30 tools. 15+ captcha types. Auto-fallback to external services.
 
 ---
 
@@ -65,6 +65,7 @@ For **99.99%+ accuracy**, provide API keys from one or more services:
 | CaptchaAI | https://captchaai.com | ~$1-3 per 1000 |
 | 2Captcha | https://2captcha.com | ~$1-3 per 1000 |
 | Anti-Captcha | https://anti-captcha.com | ~$1-3 per 1000 |
+| DeathByCaptcha | https://deathbycaptcha.com | ~$1-3 per 1000 |
 
 ### How to use API keys
 
@@ -145,6 +146,7 @@ handle_captcha({ situation: "I see a text captcha on login page" })
 | Tool | Captcha Type |
 |------|--------------|
 | `solve_with_captchaai` | reCAPTCHA, hCaptcha, Turnstile, image (2Captcha-compatible) |
+| `solve_with_deathbycaptcha` | reCAPTCHA, hCaptcha, Turnstile, image (2Captcha-compatible, auth: username:password or authtoken) |
 | `solve_with_2captcha` | reCAPTCHA, hCaptcha, image |
 | `solve_with_anticaptcha` | reCAPTCHA, hCaptcha, image |
 | `solve_funcaptcha` | FunCaptcha / Arkose Labs |

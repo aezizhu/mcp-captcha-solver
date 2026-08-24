@@ -2,7 +2,7 @@
  * High-Reliability Captcha Services
  * 
  * Additional providers + cascading fallback for 99%+ success rate
- * Includes: CapSolver, CapMonster Cloud, CaptchaAI, and auto-retry logic
+ * Includes: CapSolver, CapMonster Cloud, CaptchaAI, DeathByCaptcha, and auto-retry logic
  */
 
 import { fetchWithTimeout, SUBMIT_TIMEOUT, POLL_TIMEOUT } from './utils.js';
@@ -12,7 +12,8 @@ const SERVICES = {
     capMonster: 'https://api.capmonster.cloud',
     twoCaptcha: 'https://2captcha.com',
     antiCaptcha: 'https://api.anti-captcha.com',
-    captchaAI: 'https://ocr.captchaai.com'
+    captchaAI: 'https://ocr.captchaai.com',
+    deathByCaptcha: 'https://api.deathbycaptcha.com/2captcha'
 };
 
 // Maps service identifiers used in cascade logic to apiKeys property names
@@ -21,7 +22,8 @@ const SERVICE_KEY_MAP = {
     capmonster: 'capmonster',
     '2captcha': 'twoCaptcha',
     anticaptcha: 'antiCaptcha',
-    captchaai: 'captchaAI'
+    captchaai: 'captchaAI',
+    deathbycaptcha: 'deathByCaptcha'
 };
 
 // Retry configuration
@@ -147,6 +149,23 @@ export async function solveWithCaptchaAI(params) {
 }
 
 /**
+ * DeathByCaptcha - 2Captcha-compatible shim endpoint
+ * Auth: username:password or authtoken as the key field
+ * Supports: image, reCAPTCHA v2/v3, hCaptcha, Turnstile
+ */
+export async function solveWithDeathByCaptcha(params) {
+    const { apiKey, username, password, authtoken, captchaType = 'image', ...captchaParams } = params;
+
+    const key = apiKey || authtoken || (username && password ? `${username}:${password}` : null);
+    if (!key) {
+        return { success: false, error: 'DeathByCaptcha credentials required (username:password or authtoken)' };
+    }
+
+    const result = await solveDeathByCaptchaByType(captchaType, { apiKey: key, ...captchaParams });
+    return { ...result, service: 'deathbycaptcha' };
+}
+
+/**
  * Cascading Solver - Try multiple services until one succeeds
  * This is the key to 99%+ success rate
  */
@@ -160,7 +179,7 @@ export async function solveWithCascade(params) {
         challenge,
         publicKey,
         apiKeys = {},
-        services = ['capsolver', 'capmonster', 'captchaai', '2captcha', 'anticaptcha']
+        services = ['capsolver', 'capmonster', 'captchaai', '2captcha', 'anticaptcha', 'deathbycaptcha']
     } = params;
 
     const attempts = [];
@@ -193,6 +212,9 @@ export async function solveWithCascade(params) {
                         break;
                     case 'captchaai':
                         result = await solveCaptchaAIByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey });
+                        break;
+                    case 'deathbycaptcha':
+                        result = await solveDeathByCaptchaByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey });
                         break;
                 }
 
@@ -417,6 +439,62 @@ async function solveCaptchaAIByType(captchaType, params) {
     }
 }
 
+async function solveDeathByCaptchaByType(captchaType, params) {
+    const { apiKey, imageBase64, siteKey, pageUrl } = params;
+    const BASE = SERVICES.deathByCaptcha;
+
+    let method, body;
+    switch (captchaType) {
+        case 'image':
+            method = 'base64';
+            body = new URLSearchParams({ key: apiKey, method, body: imageBase64, json: '1' });
+            break;
+        case 'recaptcha':
+            method = 'userrecaptcha';
+            body = new URLSearchParams({ key: apiKey, method, googlekey: siteKey, pageurl: pageUrl, json: '1' });
+            break;
+        case 'recaptcha_v3':
+            method = 'userrecaptcha';
+            body = new URLSearchParams({ key: apiKey, method, googlekey: siteKey, pageurl: pageUrl, version: 'v3', json: '1' });
+            break;
+        case 'hcaptcha':
+            method = 'hcaptcha';
+            body = new URLSearchParams({ key: apiKey, method, sitekey: siteKey, pageurl: pageUrl, json: '1' });
+            break;
+        case 'turnstile':
+            method = 'turnstile';
+            body = new URLSearchParams({ key: apiKey, method, sitekey: siteKey, pageurl: pageUrl, json: '1' });
+            break;
+        default:
+            return { success: false, error: `Unsupported DeathByCaptcha captchaType: ${captchaType}` };
+    }
+
+    try {
+        const submitResponse = await fetchWithTimeout(`${BASE}/in.php`, { method: 'POST', body }, SUBMIT_TIMEOUT);
+        const submitResult = await submitResponse.json();
+
+        if (submitResult.status !== 1) {
+            return { success: false, error: submitResult.request };
+        }
+
+        const taskId = submitResult.request;
+        for (let i = 0; i < 40; i++) {
+            await new Promise(r => setTimeout(r, 5000));
+            const resultResponse = await fetchWithTimeout(`${BASE}/res.php?key=${encodeURIComponent(apiKey)}&action=get&id=${taskId}&json=1`, {}, POLL_TIMEOUT);
+            const resultData = await resultResponse.json();
+            if (resultData.status === 1) {
+                return { success: true, result: resultData.request };
+            }
+            if (resultData.request !== 'CAPCHA_NOT_READY') {
+                return { success: false, error: resultData.request };
+            }
+        }
+        return { success: false, error: 'Timeout' };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
 async function solveAntiCaptchaByType(captchaType, params) {
     const { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey } = params;
 
@@ -496,12 +574,13 @@ export async function solveAnyCaptcha(params) {
     if (apiKeys.captchaAI) availableServices.push('captchaai');
     if (apiKeys.twoCaptcha) availableServices.push('2captcha');
     if (apiKeys.antiCaptcha) availableServices.push('anticaptcha');
+    if (apiKeys.deathByCaptcha) availableServices.push('deathbycaptcha');
 
     if (availableServices.length === 0) {
         return {
             success: false,
             error: 'No API keys provided. For 99%+ success rate, at least one service API key is required.',
-            hint: 'Add apiKeys: { capsolver: "...", captchaAI: "...", twoCaptcha: "...", etc. }'
+            hint: 'Add apiKeys: { capsolver: "...", captchaAI: "...", twoCaptcha: "...", deathByCaptcha: "user:pass", etc. }'
         };
     }
 

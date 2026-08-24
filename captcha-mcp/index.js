@@ -5,7 +5,7 @@
  * 
  * The world's most comprehensive MCP server for AI captcha solving:
  * - 99%+ success rate with cascading multi-service fallback
- * - 29 tools covering every major captcha type
+ * - 30 tools covering every major captcha type
  * - High-reliability mode: CapSolver, CapMonster, 2Captcha, Anti-Captcha
  * - Local OCR for quick checks, external services for guaranteed results
  */
@@ -47,6 +47,7 @@ import {
     solveWithCapSolver,
     solveWithCapMonster,
     solveWithCaptchaAI,
+    solveWithDeathByCaptcha,
     solveWithCascade,
     solveAnyCaptcha
 } from './tools/high-reliability.js';
@@ -150,13 +151,14 @@ const TOOLS = [
                 imageBase64: { type: "string", description: "Base64 encoded captcha image" },
                 apiKeys: {
                     type: "object",
-                    description: "API keys for fallback: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha }",
+                    description: "API keys for fallback: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha, deathByCaptcha }",
                     properties: {
                         capsolver: { type: "string" },
                         capmonster: { type: "string" },
                         captchaAI: { type: "string" },
                         twoCaptcha: { type: "string" },
-                        antiCaptcha: { type: "string" }
+                        antiCaptcha: { type: "string" },
+                        deathByCaptcha: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" }
                     }
                 },
                 confidenceThreshold: { type: "number", default: 85, description: "Use external service if local confidence below this" },
@@ -409,7 +411,7 @@ const TOOLS = [
     // === HIGH-RELIABILITY TOOLS (99%+ Success Rate) ===
     {
         name: "solve_any_captcha",
-        description: "🏆 PRIMARY TOOL - Solve ANY captcha with 99%+ success rate. Automatically cascades through multiple services (CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha) with retry logic.",
+        description: "🏆 PRIMARY TOOL - Solve ANY captcha with 99%+ success rate. Automatically cascades through multiple services (CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha, DeathByCaptcha) with retry logic.",
         inputSchema: {
             type: "object",
             properties: {
@@ -426,13 +428,14 @@ const TOOLS = [
                 publicKey: { type: "string", description: "FunCaptcha public key (for funcaptcha type)" },
                 apiKeys: {
                     type: "object",
-                    description: "API keys for services: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha }",
+                    description: "API keys for services: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha, deathByCaptcha }",
                     properties: {
                         capsolver: { type: "string" },
                         capmonster: { type: "string" },
                         captchaAI: { type: "string" },
                         twoCaptcha: { type: "string" },
-                        antiCaptcha: { type: "string" }
+                        antiCaptcha: { type: "string" },
+                        deathByCaptcha: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" }
                     }
                 }
             },
@@ -489,6 +492,28 @@ const TOOLS = [
                 publicKey: { type: "string", description: "FunCaptcha public key (for funcaptcha type)" }
             },
             required: ["apiKey", "captchaType"]
+        }
+    },
+    {
+        name: "solve_with_deathbycaptcha",
+        description: "Solve captcha using DeathByCaptcha (2Captcha-compatible API, supports image, reCAPTCHA v2/v3, hCaptcha, Turnstile). Auth: 'username:password' or authtoken",
+        inputSchema: {
+            type: "object",
+            properties: {
+                apiKey: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" },
+                username: { type: "string", description: "DeathByCaptcha username (alternative to apiKey)" },
+                password: { type: "string", description: "DeathByCaptcha password (alternative to apiKey)" },
+                authtoken: { type: "string", description: "DeathByCaptcha authtoken (alternative to apiKey)" },
+                captchaType: {
+                    type: "string",
+                    enum: ["image", "recaptcha", "recaptcha_v3", "hcaptcha", "turnstile"],
+                    description: "Type of captcha to solve"
+                },
+                imageBase64: { type: "string", description: "For image captchas" },
+                siteKey: { type: "string", description: "For token-based captchas" },
+                pageUrl: { type: "string", description: "Page URL for token-based captchas" }
+            },
+            required: ["captchaType"]
         }
     },
 
@@ -651,6 +676,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case "solve_with_captchaai":
                 result = await solveWithCaptchaAI(args);
+                break;
+            case "solve_with_deathbycaptcha":
+                result = await solveWithDeathByCaptcha(args);
                 break;
 
             // Utility tools
@@ -892,7 +920,7 @@ function getCaptchaSolvingStrategy(captchaType) {
 async function runServer() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("MCP Captcha Solver v3.1 running - 29 tools, 15+ captcha types");
+    console.error("MCP Captcha Solver v3.1 running - 30 tools, 15+ captcha types");
 }
 
 runServer().catch((error) => {
