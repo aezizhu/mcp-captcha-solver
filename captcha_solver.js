@@ -1151,7 +1151,10 @@ If you agree to the above, please enter 'I have read and agree to the above cont
                 blackList.push(zz);
                 GM_setValue("blackList", blackList);
                 var row = table.insertRow(table.rows.length);
-                row.insertCell(0).innerHTML = "<div style='white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>" + zz + "</div>";
+                var zzDiv = document.createElement("div");
+                zzDiv.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+                zzDiv.textContent = zz;
+                row.insertCell(0).appendChild(zzDiv);
                 var removeBtn = document.createElement("button");
                 removeBtn.className = "remove";
                 removeBtn.style.cssText = "background-color: transparent; color: blue; border: none; padding: 5px; font-size: 14px; border-radius: 5px; cursor: pointer; ";

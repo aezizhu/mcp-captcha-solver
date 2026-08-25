@@ -597,7 +597,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 result = await calculateSliderOffset(args.backgroundBase64, args.pieceBase64);
                 break;
             case "analyze_image_grid":
-                result = await analyzeImageGrid(args.imageBase64, args.gridSize || 3);
+                result = await analyzeImageGrid(args.imageBase64, args.gridSize ?? 3);
                 break;
 
             // Basic external services
