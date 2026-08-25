@@ -3,6 +3,9 @@
  * Supports: FunCaptcha, GeeTest, Turnstile, Audio, Rotate
  */
 
+import { pollCaptchaResult } from './utils.js';
+import { fetchExternalResource, ValidationError } from './security.js';
+
 const SERVICES = {
     twoCaptcha: 'https://2captcha.com',
     antiCaptcha: 'https://api.anti-captcha.com',
@@ -47,9 +50,7 @@ export async function solveFunCaptcha(params) {
             for (let i = 0; i < 60; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -104,9 +105,7 @@ export async function solveGeeTestV3(params) {
             for (let i = 0; i < 60; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -164,9 +163,7 @@ export async function solveGeeTestV4(params) {
             for (let i = 0; i < 60; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -220,9 +217,7 @@ export async function solveTurnstile(params) {
             for (let i = 0; i < 40; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -269,10 +264,9 @@ export async function solveAudioCaptcha(params) {
                     json: '1'
                 });
             } else {
-                // Fetch audio first
-                const audioResponse = await fetch(audioUrl);
-                const audioBuffer = await audioResponse.arrayBuffer();
-                const base64 = Buffer.from(audioBuffer).toString('base64');
+                // Fetch audio first (HTTPS only, SSRF-validated, bounded size/time)
+                const audioBuffer = await fetchExternalResource(audioUrl);
+                const base64 = audioBuffer.toString('base64');
 
                 body = new URLSearchParams({
                     key: apiKey,
@@ -297,9 +291,7 @@ export async function solveAudioCaptcha(params) {
             for (let i = 0; i < 30; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -311,6 +303,9 @@ export async function solveAudioCaptcha(params) {
             }
             return { success: false, error: 'Timeout' };
         } catch (error) {
+            if (error instanceof ValidationError) {
+                return { success: false, error: `Invalid audioUrl: ${error.message}` };
+            }
             return { success: false, error: error.message };
         }
     }
@@ -353,9 +348,7 @@ export async function solveRotateCaptcha(params) {
             for (let i = 0; i < 30; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -415,9 +408,7 @@ export async function solveKeyCaptcha(params) {
             for (let i = 0; i < 40; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -471,9 +462,7 @@ export async function solveLeminCaptcha(params) {
             for (let i = 0; i < 40; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
@@ -528,9 +517,7 @@ export async function solveAmazonCaptcha(params) {
             for (let i = 0; i < 40; i++) {
                 await new Promise(r => setTimeout(r, 5000));
 
-                const resultResponse = await fetch(
-                    `${SERVICES.twoCaptcha}/res.php?key=${apiKey}&action=get&id=${taskId}&json=1`
-                );
+                const resultResponse = await pollCaptchaResult(SERVICES.twoCaptcha, apiKey, taskId);
                 const resultData = await resultResponse.json();
 
                 if (resultData.status === 1) {
