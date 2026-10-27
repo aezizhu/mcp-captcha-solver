@@ -24,7 +24,7 @@ npm start
 - **Local OCR** - Tesseract.js (no external API)
 - **Slider Puzzles** - Edge detection for offset calculation
 - **Grid Analysis** - Image selection coordinate mapping
-- **External Services** - CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha, DeathByCaptcha
+- **External Services** - CapSolver, CapMonster, CaptchaAI, 2Captcha, Anti-Captcha, DeathByCaptcha, Solvecha (image/text only)
 - **Smart Fallback** - Automatic service switching
 
 ➡️ **[Full Documentation](captcha-mcp/README.md)**

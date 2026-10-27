@@ -66,6 +66,7 @@ For **99.99%+ accuracy**, provide API keys from one or more services:
 | 2Captcha | https://2captcha.com | ~$1-3 per 1000 |
 | Anti-Captcha | https://anti-captcha.com | ~$1-3 per 1000 |
 | DeathByCaptcha | https://deathbycaptcha.com | ~$1-3 per 1000 |
+| Solvecha | https://solvecha.com/docs | Image/text captchas only |
 
 ### How to use API keys
 

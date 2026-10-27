@@ -13,7 +13,8 @@ const SERVICES = {
     twoCaptcha: 'https://2captcha.com',
     antiCaptcha: 'https://api.anti-captcha.com',
     captchaAI: 'https://ocr.captchaai.com',
-    deathByCaptcha: 'https://api.deathbycaptcha.com/2captcha'
+    deathByCaptcha: 'https://api.deathbycaptcha.com/2captcha',
+    solvecha: 'https://api.solvecha.com'
 };
 
 // Maps service identifiers used in cascade logic to apiKeys property names
@@ -23,7 +24,8 @@ const SERVICE_KEY_MAP = {
     '2captcha': 'twoCaptcha',
     anticaptcha: 'antiCaptcha',
     captchaai: 'captchaAI',
-    deathbycaptcha: 'deathByCaptcha'
+    deathbycaptcha: 'deathByCaptcha',
+    solvecha: 'solvecha'
 };
 
 // Retry configuration
@@ -134,6 +136,64 @@ export async function solveWithCapMonster(params) {
 }
 
 /**
+ * Solvecha - image/text captchas only (no token captchas).
+ * Same createTask/getTaskResult flow as CapSolver; the answer may already
+ * be in the createTask response. API errors keep their errorDescription.
+ */
+export async function solveWithSolvecha(params) {
+    const { apiKey, imageBase64 } = params;
+
+    if (!apiKey) {
+        return { success: false, error: 'Solvecha API key required' };
+    }
+    if (!imageBase64) {
+        return { success: false, error: 'Solvecha only solves image captchas: imageBase64 required' };
+    }
+
+    try {
+        const createResponse = await fetchWithTimeout(`${SERVICES.solvecha}/createTask`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clientKey: apiKey,
+                task: { type: 'ImageToTextTask', body: imageBase64 }
+            })
+        }, SUBMIT_TIMEOUT);
+        const createResult = await createResponse.json();
+
+        if (createResult.errorId !== 0) {
+            return { success: false, error: createResult.errorDescription || createResult.errorCode };
+        }
+        if (createResult.status === 'ready' && createResult.solution) {
+            return { success: true, solution: createResult.solution, service: 'solvecha' };
+        }
+
+        const taskId = createResult.taskId;
+
+        for (let i = 0; i < 40; i++) {
+            await new Promise(r => setTimeout(r, 3000));
+
+            const getResponse = await fetchWithTimeout(`${SERVICES.solvecha}/getTaskResult`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientKey: apiKey, taskId })
+            }, POLL_TIMEOUT);
+            const getResult = await getResponse.json();
+
+            if (getResult.errorId !== 0) {
+                return { success: false, error: getResult.errorDescription || getResult.errorCode };
+            }
+            if (getResult.status === 'ready') {
+                return { success: true, solution: getResult.solution, service: 'solvecha' };
+            }
+        }
+        return { success: false, error: 'Timeout' };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * CaptchaAI - 2Captcha-compatible API with different base URL
  * Supports: image, reCAPTCHA, hCaptcha, Turnstile, GeeTest, FunCaptcha
  */
@@ -215,6 +275,11 @@ export async function solveWithCascade(params) {
                         break;
                     case 'deathbycaptcha':
                         result = await solveDeathByCaptchaByType(captchaType, { apiKey, imageBase64, siteKey, pageUrl, gt, challenge, publicKey });
+                        break;
+                    case 'solvecha':
+                        result = captchaType === 'image'
+                            ? await solveWithSolvecha({ apiKey, imageBase64 })
+                            : { success: false, error: 'Solvecha only solves image captchas' };
                         break;
                 }
 
