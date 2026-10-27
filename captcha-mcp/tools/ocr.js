@@ -464,7 +464,7 @@ export async function solveTextCaptchaGuaranteed(imageBase64, options = {}) {
     }
 
     // Try external services in order
-    const services = ['capsolver', 'capmonster', 'captchaAI', 'twoCaptcha', 'antiCaptcha', 'deathByCaptcha'];
+    const services = ['capsolver', 'capmonster', 'captchaAI', 'twoCaptcha', 'antiCaptcha', 'deathByCaptcha', 'solvecha'];
 
     for (const service of services) {
         const key = apiKeys[service];
@@ -491,6 +491,9 @@ export async function solveTextCaptchaGuaranteed(imageBase64, options = {}) {
                     break;
                 case 'deathByCaptcha':
                     externalResult = await solveWithExternalService('deathbycaptcha', imageBase64, key);
+                    break;
+                case 'solvecha':
+                    externalResult = await solveWithExternalService('solvecha', imageBase64, key);
                     break;
             }
 
@@ -534,7 +537,8 @@ async function solveWithExternalService(service, imageBase64, apiKey) {
         'captchaai': 'https://ocr.captchaai.com',
         '2captcha': 'https://2captcha.com',
         'anticaptcha': 'https://api.anti-captcha.com',
-        'deathbycaptcha': 'https://api.deathbycaptcha.com/2captcha'
+        'deathbycaptcha': 'https://api.deathbycaptcha.com/2captcha',
+        'solvecha': 'https://api.solvecha.com'
     };
 
     try {
@@ -575,7 +579,7 @@ async function solveWithExternalService(service, imageBase64, apiKey) {
             return { success: false, error: 'Timeout' };
         }
 
-        if (service === 'capsolver' || service === 'capmonster' || service === 'anticaptcha') {
+        if (service === 'capsolver' || service === 'capmonster' || service === 'anticaptcha' || service === 'solvecha') {
             // Create task
             const createRes = await fetch(`${ENDPOINTS[service]}/createTask`, {
                 method: 'POST',
@@ -592,6 +596,11 @@ async function solveWithExternalService(service, imageBase64, apiKey) {
 
             if (createResult.errorId !== 0) {
                 return { success: false, error: createResult.errorDescription };
+            }
+
+            // Solvecha may already return the answer in createTask
+            if (service === 'solvecha' && createResult.status === 'ready' && createResult.solution?.text) {
+                return { success: true, text: createResult.solution.text };
             }
 
             // Poll for result
