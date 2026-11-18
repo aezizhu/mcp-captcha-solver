@@ -154,14 +154,15 @@ const TOOLS = [
                 imageBase64: { type: "string", description: "Base64 encoded captcha image" },
                 apiKeys: {
                     type: "object",
-                    description: "API keys for fallback: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha, deathByCaptcha }",
+                    description: "API keys for fallback: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha, deathByCaptcha, solvecha }",
                     properties: {
                         capsolver: { type: "string" },
                         capmonster: { type: "string" },
                         captchaAI: { type: "string" },
                         twoCaptcha: { type: "string" },
                         antiCaptcha: { type: "string" },
-                        deathByCaptcha: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" }
+                        deathByCaptcha: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" },
+                        solvecha: { type: "string", description: "Solvecha API key (image/text captchas only)" }
                     }
                 },
                 confidenceThreshold: { type: "number", default: 85, description: "Use external service if local confidence below this" },
@@ -431,14 +432,15 @@ const TOOLS = [
                 publicKey: { type: "string", description: "FunCaptcha public key (for funcaptcha type)" },
                 apiKeys: {
                     type: "object",
-                    description: "API keys for services: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha, deathByCaptcha }",
+                    description: "API keys for services: { capsolver, capmonster, captchaAI, twoCaptcha, antiCaptcha, deathByCaptcha, solvecha }",
                     properties: {
                         capsolver: { type: "string" },
                         capmonster: { type: "string" },
                         captchaAI: { type: "string" },
                         twoCaptcha: { type: "string" },
                         antiCaptcha: { type: "string" },
-                        deathByCaptcha: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" }
+                        deathByCaptcha: { type: "string", description: "DeathByCaptcha credentials: 'username:password' or authtoken" },
+                        solvecha: { type: "string", description: "Solvecha API key (image/text captchas only)" }
                     }
                 }
             },
